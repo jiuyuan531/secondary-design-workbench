@@ -1,0 +1,44 @@
+name: Windows 打包与自检
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npx electron-builder --win portable nsis --x64 --publish never
+
+      # M0 验收：在 PATH 里去掉 Node.js 后启动打包好的程序，确认能打开并读写数据库
+      - name: 无 Node 环境自检（启动两次，第二次验证能读到第一次写入的数据）
+        shell: pwsh
+        run: |
+          $env:PATH = "C:\Windows\System32;C:\Windows"
+          if (Get-Command node -ErrorAction SilentlyContinue) { throw "PATH 中仍能找到 node" }
+          $ud = Join-Path $env:RUNNER_TEMP "wb-userdata"
+          foreach ($i in 1, 2) {
+            $out = Join-Path $env:RUNNER_TEMP "smoke-$i.json"
+            $p = Start-Process -FilePath "release\win-unpacked\ErciWorkbench.exe" -ArgumentList "--smoke-test", "--user-data=$ud", "--smoke-out=$out" -Wait -PassThru
+            Get-Content $out -Encoding utf8
+            $r = Get-Content $out -Encoding utf8 | ConvertFrom-Json
+            if ($p.ExitCode -ne 0 -or -not $r.selfCheck.ok) { throw "第 $i 次自检失败" }
+            if ($r.selfCheck.totalRows -ne $i) { throw "第 $i 次自检记录数应为 $i，实际为 $($r.selfCheck.totalRows)" }
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: erci-workbench-windows
+          path: release/*.exe
+          if-no-files-found: error

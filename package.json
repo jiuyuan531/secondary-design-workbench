@@ -1,0 +1,79 @@
+{
+  "name": "secondary-design-workbench",
+  "productName": "二次设计工作台",
+  "version": "0.1.0",
+  "description": "二次设计工作台：二次回路学习 + 项目看板（本地桌面程序）",
+  "private": true,
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build:renderer": "vite build",
+    "build:main": "node scripts/build-main.mjs",
+    "build": "npm run build:renderer && npm run build:main",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "dist:win": "npm run build && electron-builder --win portable nsis --x64 --publish never",
+    "dist:dir": "npm run build && electron-builder --dir"
+  },
+  "build": {
+    "appId": "local.secondary-design-workbench",
+    "productName": "二次设计工作台",
+    "artifactName": "erci-workbench-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "data/seed",
+        "to": "seed"
+      }
+    ],
+    "asarUnpack": [
+      "node_modules/sql.js/dist/sql-wasm.wasm"
+    ],
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "erci-workbench-${version}-setup.${ext}"
+    },
+    "linux": {
+      "target": [
+        "dir"
+      ]
+    },
+    "publish": null,
+    "executableName": "ErciWorkbench",
+    "portable": {
+      "artifactName": "erci-workbench-${version}-portable.${ext}"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/sql.js": "^1.4.11",
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "^45.2.1",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "sql.js": "^1.15.2"
+  }
+}
