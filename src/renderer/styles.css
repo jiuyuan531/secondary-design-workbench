@@ -45,3 +45,90 @@ table.kv th, table.kv td { padding: 8px 12px; border-bottom: 1px solid var(--lin
 .msg.ok { color: var(--ok); }
 .msg.error { color: var(--err); }
 .switch { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+/* ---------- M1 项目看板 ---------- */
+.content { max-width: 1280px; }
+.small { font-size: 12px; }
+.spacer { flex: 1; }
+.pre { white-space: pre-wrap; }
+select, textarea, input[type=date] { font: inherit; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+textarea { width: 100%; resize: vertical; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+.tab { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 8px 14px; }
+.tab.active { border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }
+.toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.title-row, .section-head { display: flex; align-items: center; gap: 10px; }
+.section-head { margin-top: 24px; }
+.section-head h2 { margin: 0; }
+.section-head h2 + * { margin-left: auto; }
+table.grid { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); margin-top: 8px; }
+table.grid th { background: #f6f8fa; font-weight: 600; text-align: left; color: var(--muted); font-size: 13px; }
+table.grid th, table.grid td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.grid.clickable tbody tr { cursor: pointer; }
+table.grid.clickable tbody tr:hover { background: #f3f7ff; }
+table.grid tr.done td { color: var(--muted); text-decoration: line-through; }
+td.actions { white-space: nowrap; text-align: right; }
+table.kv td + th { width: 100px; }
+.overdue { color: var(--err); font-weight: 600; }
+.due-soon { color: var(--warn); font-weight: 600; }
+.count-open { color: var(--err); font-weight: 700; }
+button.link.danger, .danger-btn { color: var(--err); }
+.badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 10px; background: #eaeef2; color: #424a53; white-space: nowrap; }
+.badge.conflict { background: #ffebe9; color: var(--err); font-weight: 600; }
+.badge.source { background: #ddf4ff; color: #0969da; }
+.badge.issueStatus-open { background: #ffebe9; color: var(--err); }
+.badge.issueStatus-submitted { background: #fff8c5; color: var(--warn); }
+.badge.issueStatus-confirmed { background: #dafbe1; color: var(--ok); }
+.badge.infoNature-source_fact { background: #dafbe1; color: var(--ok); }
+.badge.infoNature-cross_inference { background: #fbefff; color: #8250df; }
+.badge.infoNature-to_confirm { background: #fff1e5; color: #bc4c00; }
+.badge.priority-high { background: #ffebe9; color: var(--err); }
+.badge.volumeStatus-issued, .badge.taskStatus-done, .badge.projectStatus-done { background: #dafbe1; color: var(--ok); }
+.badge.projectStatus-active, .badge.taskStatus-doing { background: #ddf4ff; color: #0969da; }
+/* 看板 */
+.kanban { display: grid; grid-template-columns: repeat(6, minmax(150px, 1fr)); gap: 8px; align-items: start; }
+.kanban-col { background: #eef1f4; border-radius: 8px; padding: 8px; min-height: 240px; }
+.kanban-head { font-weight: 600; margin-bottom: 8px; }
+.kanban-card { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin-bottom: 8px; cursor: grab; display: flex; flex-direction: column; gap: 3px; }
+.kc-title { font-weight: 600; }
+.kc-meta, .kc-due { font-size: 12px; color: var(--muted); }
+.kc-project { text-align: left; font-size: 12px; }
+.kc-move { font-size: 12px; padding: 2px 4px; }
+/* 问题 */
+.issue-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.issue-card { background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--err); border-radius: 6px; padding: 10px 12px; }
+.issue-card.status-submitted { border-left-color: #d4a72c; }
+.issue-card.status-confirmed { border-left-color: var(--ok); }
+.issue-head { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.issue-desc { margin: 6px 0; }
+ul.sources { margin: 4px 0; padding-left: 18px; }
+ul.sources.conflict { border-left: 3px solid #ffcecb; background: #fff8f7; padding: 6px 6px 6px 24px; }
+.statement { color: #424a53; margin: 2px 0 4px; }
+.conclusion { background: #f6fff8; border-radius: 4px; padding: 6px 8px; margin-top: 6px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.chip { border-radius: 14px; font-size: 13px; }
+.chip strong { color: var(--err); margin-left: 4px; }
+/* 首页 */
+.stats { display: flex; gap: 12px; margin: 8px 0 4px; }
+.stat { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 12px 20px; min-width: 170px; text-align: left; }
+.stat-num { font-size: 26px; font-weight: 700; }
+.stat-label { color: var(--muted); }
+details.system { margin-top: 32px; }
+details.system summary { cursor: pointer; color: var(--muted); }
+/* 弹窗表单 */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: flex-start; justify-content: center; padding-top: 6vh; z-index: 10; }
+.modal { background: #fff; border-radius: 10px; width: 560px; max-height: 86vh; overflow: auto; padding: 16px 20px; box-shadow: 0 8px 30px rgba(0,0,0,.25); }
+.modal.wide { width: 760px; }
+.modal-head { display: flex; justify-content: space-between; align-items: center; }
+.modal-head h2 { margin: 0; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.form { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.form-row { display: grid; grid-template-columns: 110px 1fr; gap: 10px; align-items: start; }
+.form-row > label { padding-top: 6px; font-weight: 600; }
+.form-row input[type=text], .form-row select, .form-row textarea { width: 100%; min-width: 0; }
+.req { color: var(--err); margin-left: 2px; }
+.hint { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.source-card { border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin: 6px 0; display: flex; flex-direction: column; gap: 6px; }
+.source-card.conflict { border-color: #ffcecb; background: #fff8f7; }
+.source-head { display: flex; justify-content: space-between; }
+.source-grid { display: grid; grid-template-columns: 170px 1fr; gap: 6px; }
