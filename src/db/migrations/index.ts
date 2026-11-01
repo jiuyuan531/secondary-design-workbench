@@ -35,6 +35,75 @@ export const MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    version: 2,
+    name: "项目看板：项目、卷册、任务、待确认问题及来源",
+    sql: `
+      CREATE TABLE projects (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        name          TEXT NOT NULL,
+        voltage_level TEXT,
+        project_type  TEXT NOT NULL,
+        status        TEXT NOT NULL,
+        folder_path   TEXT,
+        start_date    TEXT,
+        due_date      TEXT,
+        notes         TEXT,
+        created_at    TEXT NOT NULL,
+        updated_at    TEXT NOT NULL
+      );
+      CREATE TABLE volumes (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        name        TEXT NOT NULL,
+        drawing_no  TEXT,
+        revision    TEXT,
+        status      TEXT NOT NULL,
+        due_date    TEXT,
+        notes       TEXT,
+        created_at  TEXT NOT NULL,
+        updated_at  TEXT NOT NULL
+      );
+      CREATE INDEX idx_volumes_project ON volumes(project_id);
+      CREATE TABLE tasks (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        volume_id   INTEGER REFERENCES volumes(id) ON DELETE SET NULL,
+        content     TEXT NOT NULL,
+        status      TEXT NOT NULL,
+        priority    TEXT NOT NULL,
+        due_date    TEXT,
+        created_at  TEXT NOT NULL,
+        updated_at  TEXT NOT NULL
+      );
+      CREATE INDEX idx_tasks_project ON tasks(project_id);
+      CREATE TABLE issues (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id     INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        volume_id      INTEGER REFERENCES volumes(id) ON DELETE SET NULL,
+        description    TEXT NOT NULL,
+        info_nature    TEXT NOT NULL,
+        has_conflict   INTEGER NOT NULL DEFAULT 0,
+        status         TEXT NOT NULL,
+        confirmed_by   TEXT,
+        confirmed_date TEXT,
+        conclusion     TEXT,
+        created_at     TEXT NOT NULL,
+        updated_at     TEXT NOT NULL
+      );
+      CREATE INDEX idx_issues_project ON issues(project_id);
+      -- 问题的来源：一条问题可有多个来源，矛盾时分别记下两边说法
+      CREATE TABLE issue_sources (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        issue_id    INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+        position    INTEGER NOT NULL,
+        source_type TEXT NOT NULL,
+        reference   TEXT NOT NULL DEFAULT '',  -- 文件名、页码或图号
+        statement   TEXT NOT NULL DEFAULT ''   -- 这个来源的说法
+      );
+      CREATE INDEX idx_issue_sources_issue ON issue_sources(issue_id);
+    `,
+  },
 ];
 
 export const LATEST_DB_VERSION = MIGRATIONS.length
