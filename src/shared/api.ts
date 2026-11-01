@@ -52,9 +52,25 @@ export interface WorkbenchApi {
     dashboard(today: string): Promise<Result<Dashboard>>;
   };
 
+  circuits: {
+    list(): Promise<Result<CircuitListItem[]>>;
+    read(file: string): Promise<Result<string>>;
+  };
+
   data: {
     backup(): Promise<Result<{ path: string; summary?: string } | null>>;
     pickRestore(): Promise<Result<{ path: string; check: BackupCheck } | null>>;
     restore(source: string): Promise<Result<{ safetyBackup: string; summary?: string }>>;
   };
+}
+
+export interface CircuitListItem {
+  file: string;
+  id?: string;
+  title?: string;
+  category?: string;
+  reviewStatus?: string;
+  migratedFrom?: number[];
+  /** 读入失败时的中文原因 */
+  error?: string;
 }
