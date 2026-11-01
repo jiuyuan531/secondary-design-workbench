@@ -18,6 +18,10 @@ const api: WorkbenchApi = {
     remove: (e, id) => ipcRenderer.invoke("board:remove", e, id),
     dashboard: (today) => ipcRenderer.invoke("board:dashboard", today),
   },
+  circuits: {
+    list: () => ipcRenderer.invoke("circuits:list"),
+    read: (file) => ipcRenderer.invoke("circuits:read", file),
+  },
   data: {
     backup: () => ipcRenderer.invoke("data:backup"),
     pickRestore: () => ipcRenderer.invoke("data:pickRestore"),

@@ -1,0 +1,315 @@
+{
+  "schemaVersion": 1,
+  "id": "control-circuit-alarm",
+  "title": "控制回路断线告警",
+  "category": "控制回路",
+  "reviewStatus": "草稿",
+  "description": "TWJ 监视合闸回路、HWJ 监视跳闸回路。正常时两者必有一个动作；两个都返回，说明控制电源消失或跳合闸回路断线，经两者常闭接点串联发“控制回路断线”信号。（草稿：示例为通用原理，接法、元件取值和讲解均待沈审核）",
+  "nodes": [
+    "+KM",
+    "-KM",
+    "p",
+    "a1",
+    "a2",
+    "b1",
+    "b2",
+    "s1",
+    "s2"
+  ],
+  "components": [
+    {
+      "id": "QF",
+      "type": "breaker",
+      "label": "断路器",
+      "initialState": "closed",
+      "operateDelayTicks": 1
+    },
+    {
+      "id": "TWJ",
+      "type": "relay",
+      "label": "跳闸位置继电器"
+    },
+    {
+      "id": "HWJ",
+      "type": "relay",
+      "label": "合闸位置继电器"
+    },
+    {
+      "id": "QK",
+      "type": "contact_no",
+      "label": "控制电源空开",
+      "operable": true,
+      "initialState": "closed",
+      "between": [
+        "+KM",
+        "p"
+      ]
+    },
+    {
+      "id": "TWJ_coil",
+      "type": "coil",
+      "label": "TWJ 线圈",
+      "impedance": "high",
+      "drives": "TWJ",
+      "between": [
+        "p",
+        "a1"
+      ]
+    },
+    {
+      "id": "QF_b",
+      "type": "contact_nc",
+      "label": "断路器辅助常闭",
+      "controlledBy": "QF",
+      "between": [
+        "a1",
+        "a2"
+      ]
+    },
+    {
+      "id": "HQ",
+      "type": "coil",
+      "label": "合闸线圈",
+      "impedance": "low",
+      "drives": "QF",
+      "action": "close",
+      "between": [
+        "a2",
+        "-KM"
+      ]
+    },
+    {
+      "id": "HWJ_coil",
+      "type": "coil",
+      "label": "HWJ 线圈",
+      "impedance": "high",
+      "drives": "HWJ",
+      "between": [
+        "p",
+        "b1"
+      ]
+    },
+    {
+      "id": "QF_a",
+      "type": "contact_no",
+      "label": "断路器辅助常开",
+      "controlledBy": "QF",
+      "between": [
+        "b1",
+        "b2"
+      ]
+    },
+    {
+      "id": "TQ",
+      "type": "coil",
+      "label": "跳闸线圈",
+      "impedance": "low",
+      "drives": "QF",
+      "action": "trip",
+      "between": [
+        "b2",
+        "-KM"
+      ]
+    },
+    {
+      "id": "TWJ_nc",
+      "type": "contact_nc",
+      "label": "TWJ 常闭",
+      "controlledBy": "TWJ",
+      "between": [
+        "+KM",
+        "s1"
+      ]
+    },
+    {
+      "id": "HWJ_nc",
+      "type": "contact_nc",
+      "label": "HWJ 常闭",
+      "controlledBy": "HWJ",
+      "between": [
+        "s1",
+        "s2"
+      ]
+    },
+    {
+      "id": "ALM",
+      "type": "lamp",
+      "label": "控制回路断线信号",
+      "impedance": "high",
+      "between": [
+        "s2",
+        "-KM"
+      ]
+    },
+    {
+      "id": "F_QK",
+      "type": "fault_injection",
+      "label": "控制电源消失",
+      "target": "QK",
+      "kind": "open_circuit"
+    },
+    {
+      "id": "F_TQ",
+      "type": "fault_injection",
+      "label": "跳闸线圈断线",
+      "target": "TQ",
+      "kind": "open_circuit"
+    },
+    {
+      "id": "F_HQ",
+      "type": "fault_injection",
+      "label": "合闸线圈断线",
+      "target": "HQ",
+      "kind": "open_circuit"
+    }
+  ],
+  "layout": {
+    "+KM": {
+      "x": 40,
+      "y": 60,
+      "points": [
+        [
+          40,
+          60
+        ],
+        [
+          40,
+          240
+        ]
+      ]
+    },
+    "-KM": {
+      "x": 900,
+      "y": 60,
+      "points": [
+        [
+          900,
+          60
+        ],
+        [
+          900,
+          140
+        ],
+        [
+          900,
+          240
+        ]
+      ]
+    },
+    "p": {
+      "x": 180,
+      "y": 60,
+      "points": [
+        [
+          180,
+          60
+        ],
+        [
+          180,
+          140
+        ]
+      ]
+    },
+    "QK": {
+      "x": 110,
+      "y": 60,
+      "dir": "h"
+    },
+    "TWJ_coil": {
+      "x": 300,
+      "y": 60,
+      "dir": "h"
+    },
+    "QF_b": {
+      "x": 480,
+      "y": 60,
+      "dir": "h"
+    },
+    "HQ": {
+      "x": 760,
+      "y": 60,
+      "dir": "h"
+    },
+    "HWJ_coil": {
+      "x": 300,
+      "y": 140,
+      "dir": "h"
+    },
+    "QF_a": {
+      "x": 480,
+      "y": 140,
+      "dir": "h"
+    },
+    "TQ": {
+      "x": 760,
+      "y": 140,
+      "dir": "h"
+    },
+    "TWJ_nc": {
+      "x": 300,
+      "y": 240,
+      "dir": "h"
+    },
+    "HWJ_nc": {
+      "x": 480,
+      "y": 240,
+      "dir": "h"
+    },
+    "ALM": {
+      "x": 760,
+      "y": 240,
+      "dir": "h"
+    }
+  },
+  "scenarios": [
+    {
+      "title": "正常运行（合位）",
+      "steps": [
+        {
+          "action": "run",
+          "explain": "断路器在合位：HWJ 经常开辅助接点和 TQ 构成回路，HWJ 动作（高阻线圈），TQ 不动作；TWJ 所在回路被常闭辅助接点断开，TWJ 返回。HWJ 常闭断开，断线信号不亮。"
+        }
+      ]
+    },
+    {
+      "title": "控制电源消失",
+      "steps": [
+        {
+          "action": "operate",
+          "target": "F_QK",
+          "to": "active",
+          "explain": "注入故障：控制电源空开处断线。"
+        },
+        {
+          "action": "run",
+          "explain": "TWJ、HWJ 都失电返回，两个常闭接点都闭合，“控制回路断线”信号亮。"
+        },
+        {
+          "action": "operate",
+          "target": "F_QK",
+          "to": "inactive",
+          "explain": "恢复控制电源。"
+        },
+        {
+          "action": "run",
+          "explain": "HWJ 重新动作，信号熄灭。"
+        }
+      ]
+    },
+    {
+      "title": "跳闸线圈断线",
+      "steps": [
+        {
+          "action": "operate",
+          "target": "F_TQ",
+          "to": "active",
+          "explain": "注入故障：跳闸线圈断线。合位时 HWJ 正是靠跳闸线圈构成回路的。"
+        },
+        {
+          "action": "run",
+          "explain": "HWJ 失电返回；断路器在合位，TWJ 本来就返回，于是两个常闭都闭合，发“控制回路断线”信号——断路器此时已经跳不开了。"
+        }
+      ]
+    }
+  ]
+}

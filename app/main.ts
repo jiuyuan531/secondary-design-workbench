@@ -18,6 +18,7 @@ import type { AppInfo, Result } from "../src/shared/api";
 import * as board from "../src/board/repo";
 import type { EntityName } from "../src/board/model";
 import { inspectBackup, timestamp } from "../src/db/backup";
+import { loadCircuit } from "../src/engine/index";
 
 const argv = process.argv;
 const argValue = (name: string) => argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -43,21 +44,28 @@ function loadWasm(): Buffer {
   return fs.readFileSync(wasmPath);
 }
 
-/** 首次启动时把内置草稿回路复制到回路数据目录；之后不再覆盖用户文件。 */
+/**
+ * 把内置草稿回路复制到回路数据目录。
+ * 每个内置文件只复制一次（记录在 app_meta），之后用户修改或删除都不会被覆盖或恢复；
+ * 新版本程序新增的内置回路会在下次启动时补充复制。
+ */
 function ensureCircuitsDir(): void {
   fs.mkdirSync(circuitsDir, { recursive: true });
   if (!db) return;
-  const done = db.all<{ value: string }>("SELECT value FROM app_meta WHERE key = 'seed.circuits.copied'");
-  if (done.length) return;
+  const row = db.all<{ value: string }>("SELECT value FROM app_meta WHERE key = 'seed.circuits.copied'")[0];
+  let copied: string[] = [];
+  try { const v = row ? JSON.parse(row.value) : []; if (Array.isArray(v)) copied = v; } catch { /* 旧版本存的是日期，按未复制处理 */ }
   const src = path.join(seedDir(), "circuits");
-  if (fs.existsSync(src)) {
-    for (const f of fs.readdirSync(src)) {
-      if (!f.endsWith(".json")) continue;
-      const dest = path.join(circuitsDir, f);
-      if (!fs.existsSync(dest)) fs.copyFileSync(path.join(src, f), dest);
-    }
+  if (!fs.existsSync(src)) return;
+  let changed = false;
+  for (const f of fs.readdirSync(src)) {
+    if (!f.endsWith(".json") || copied.includes(f)) continue;
+    const dest = path.join(circuitsDir, f);
+    if (!fs.existsSync(dest)) fs.copyFileSync(path.join(src, f), dest);
+    copied.push(f);
+    changed = true;
   }
-  db.run("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('seed.circuits.copied', ?)", [new Date().toISOString()]);
+  if (changed) db.run("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('seed.circuits.copied', ?)", [JSON.stringify(copied)]);
 }
 
 async function initData(): Promise<void> {
@@ -176,6 +184,24 @@ function registerIpc(): void {
   handle("board:deleteImpact", (e: string, id: number) => board.deleteImpact(needDb(), checkEntity(e), id));
   handle("board:remove", (e: string, id: number) => board.remove(needDb(), checkEntity(e), id));
   handle("board:dashboard", (today: string) => board.dashboard(needDb(), today));
+
+  // ---------------- 回路库 ----------------
+  const circuitFile = (file: string) => {
+    if (!/^[^\\/:*?"<>|]+\.json$/.test(file)) throw new Error(`文件名不合法：${file}`);
+    return path.join(circuitsDir, file);
+  };
+  handle("circuits:list", () => {
+    if (!fs.existsSync(circuitsDir)) return [];
+    return fs.readdirSync(circuitsDir).filter((f) => f.endsWith(".json")).sort().map((file) => {
+      try {
+        const { circuit, migratedFrom } = loadCircuit(fs.readFileSync(path.join(circuitsDir, file), "utf8"));
+        return { file, id: circuit.id, title: circuit.title, category: circuit.category ?? "未分类", reviewStatus: circuit.reviewStatus ?? "草稿", migratedFrom };
+      } catch (e) {
+        return { file, error: (e as Error).message };
+      }
+    });
+  });
+  handle("circuits:read", (file: string) => fs.readFileSync(circuitFile(file), "utf8"));
 
   // ---------------- 备份 / 恢复 ----------------
   ipcMain.handle("data:backup", async (e) => wrap(async () => {

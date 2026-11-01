@@ -1,0 +1,405 @@
+{
+  "schemaVersion": 1,
+  "id": "breaker-control-basic",
+  "title": "断路器控制回路（基本型）",
+  "category": "控制回路",
+  "reviewStatus": "草稿",
+  "description": "跳闸回路、合闸回路及 TWJ/HWJ 位置监视、位置指示灯。（草稿：示例为通用原理，接法、元件取值和讲解均待沈审核）",
+  "nodes": [
+    "+KM",
+    "-KM",
+    "n1",
+    "n2",
+    "m1",
+    "m2",
+    "l1",
+    "l2"
+  ],
+  "components": [
+    {
+      "id": "QF",
+      "type": "breaker",
+      "label": "断路器",
+      "initialState": "open",
+      "operateDelayTicks": 1
+    },
+    {
+      "id": "TWJ",
+      "type": "relay",
+      "label": "跳闸位置继电器"
+    },
+    {
+      "id": "HWJ",
+      "type": "relay",
+      "label": "合闸位置继电器"
+    },
+    {
+      "id": "SA_close",
+      "type": "contact_no",
+      "label": "操作把手合闸接点",
+      "operable": true,
+      "between": [
+        "+KM",
+        "n1"
+      ]
+    },
+    {
+      "id": "TWJ_coil",
+      "type": "coil",
+      "label": "TWJ 线圈",
+      "coilKind": "voltage",
+      "impedance": "high",
+      "drives": "TWJ",
+      "between": [
+        "+KM",
+        "n1"
+      ]
+    },
+    {
+      "id": "QF_b",
+      "type": "contact_nc",
+      "label": "断路器辅助常闭",
+      "controlledBy": "QF",
+      "between": [
+        "n1",
+        "n2"
+      ]
+    },
+    {
+      "id": "HQ",
+      "type": "coil",
+      "label": "合闸线圈",
+      "coilKind": "voltage",
+      "impedance": "low",
+      "drives": "QF",
+      "action": "close",
+      "between": [
+        "n2",
+        "-KM"
+      ]
+    },
+    {
+      "id": "SA_trip",
+      "type": "contact_no",
+      "label": "操作把手跳闸接点",
+      "operable": true,
+      "between": [
+        "+KM",
+        "m1"
+      ]
+    },
+    {
+      "id": "KOP",
+      "type": "contact_no",
+      "label": "保护跳闸出口接点",
+      "operable": true,
+      "between": [
+        "+KM",
+        "m1"
+      ]
+    },
+    {
+      "id": "HWJ_coil",
+      "type": "coil",
+      "label": "HWJ 线圈",
+      "coilKind": "voltage",
+      "impedance": "high",
+      "drives": "HWJ",
+      "between": [
+        "+KM",
+        "m1"
+      ]
+    },
+    {
+      "id": "QF_a",
+      "type": "contact_no",
+      "label": "断路器辅助常开",
+      "controlledBy": "QF",
+      "between": [
+        "m1",
+        "m2"
+      ]
+    },
+    {
+      "id": "TQ",
+      "type": "coil",
+      "label": "跳闸线圈",
+      "coilKind": "voltage",
+      "impedance": "low",
+      "drives": "QF",
+      "action": "trip",
+      "between": [
+        "m2",
+        "-KM"
+      ]
+    },
+    {
+      "id": "TWJ_no",
+      "type": "contact_no",
+      "label": "TWJ 常开",
+      "controlledBy": "TWJ",
+      "between": [
+        "+KM",
+        "l1"
+      ]
+    },
+    {
+      "id": "LG",
+      "type": "lamp",
+      "label": "绿灯（分位）",
+      "impedance": "high",
+      "between": [
+        "l1",
+        "-KM"
+      ]
+    },
+    {
+      "id": "HWJ_no",
+      "type": "contact_no",
+      "label": "HWJ 常开",
+      "controlledBy": "HWJ",
+      "between": [
+        "+KM",
+        "l2"
+      ]
+    },
+    {
+      "id": "LR",
+      "type": "lamp",
+      "label": "红灯（合位）",
+      "impedance": "high",
+      "between": [
+        "l2",
+        "-KM"
+      ]
+    },
+    {
+      "id": "F_HQ",
+      "type": "fault_injection",
+      "label": "合闸线圈烧毁",
+      "target": "HQ",
+      "kind": "coil_burnt"
+    },
+    {
+      "id": "F_TQ",
+      "type": "fault_injection",
+      "label": "跳闸线圈断线",
+      "target": "TQ",
+      "kind": "open_circuit"
+    },
+    {
+      "id": "F_SA",
+      "type": "fault_injection",
+      "label": "合闸接点粘连",
+      "target": "SA_close",
+      "kind": "contact_stuck"
+    }
+  ],
+  "layout": {
+    "+KM": {
+      "x": 40,
+      "y": 60,
+      "points": [
+        [
+          40,
+          60
+        ],
+        [
+          40,
+          130
+        ],
+        [
+          40,
+          220
+        ],
+        [
+          40,
+          290
+        ],
+        [
+          40,
+          360
+        ],
+        [
+          40,
+          440
+        ],
+        [
+          40,
+          510
+        ]
+      ]
+    },
+    "-KM": {
+      "x": 900,
+      "y": 60,
+      "points": [
+        [
+          900,
+          60
+        ],
+        [
+          900,
+          130
+        ],
+        [
+          900,
+          220
+        ],
+        [
+          900,
+          290
+        ],
+        [
+          900,
+          360
+        ],
+        [
+          900,
+          440
+        ],
+        [
+          900,
+          510
+        ]
+      ]
+    },
+    "SA_close": {
+      "x": 140,
+      "y": 60,
+      "dir": "h"
+    },
+    "TWJ_coil": {
+      "x": 140,
+      "y": 130,
+      "dir": "h"
+    },
+    "QF_b": {
+      "x": 330,
+      "y": 60,
+      "dir": "h"
+    },
+    "HQ": {
+      "x": 760,
+      "y": 60,
+      "dir": "h"
+    },
+    "SA_trip": {
+      "x": 140,
+      "y": 220,
+      "dir": "h"
+    },
+    "KOP": {
+      "x": 140,
+      "y": 290,
+      "dir": "h"
+    },
+    "HWJ_coil": {
+      "x": 140,
+      "y": 360,
+      "dir": "h"
+    },
+    "QF_a": {
+      "x": 330,
+      "y": 220,
+      "dir": "h"
+    },
+    "TQ": {
+      "x": 760,
+      "y": 220,
+      "dir": "h"
+    },
+    "TWJ_no": {
+      "x": 140,
+      "y": 440,
+      "dir": "h"
+    },
+    "LG": {
+      "x": 760,
+      "y": 440,
+      "dir": "h"
+    },
+    "HWJ_no": {
+      "x": 140,
+      "y": 510,
+      "dir": "h"
+    },
+    "LR": {
+      "x": 760,
+      "y": 510,
+      "dir": "h"
+    }
+  },
+  "scenarios": [
+    {
+      "title": "手动合闸",
+      "steps": [
+        {
+          "action": "operate",
+          "target": "SA_close",
+          "to": "closed",
+          "explain": "把操作把手打到合闸位置，合闸接点闭合。TWJ 线圈两端被这个接点短接。"
+        },
+        {
+          "action": "tick",
+          "explain": "合闸回路 +KM → SA合闸接点 → 断路器常闭 → HQ → -KM 导通，路径上没有其他高阻元件，HQ 动作；断路器开始合闸。"
+        },
+        {
+          "action": "run",
+          "explain": "断路器合上后，常闭辅助接点断开，合闸回路被自动切断，HQ 失电——这就是合闸线圈不会长期通电烧毁的原因。同时跳闸回路经常开辅助接点接通，HWJ 动作，红灯亮。"
+        },
+        {
+          "action": "operate",
+          "target": "SA_close",
+          "to": "open",
+          "explain": "松开把手，自动复位，合闸接点断开。"
+        },
+        {
+          "action": "run",
+          "explain": "状态保持合位：HWJ 经常开辅助接点和 TQ 构成回路，HWJ 是高阻线圈所以动作，TQ 因路径上串着高阻的 HWJ 而不动作，同时监视着跳闸回路是否完好。"
+        }
+      ]
+    },
+    {
+      "title": "保护跳闸",
+      "steps": [
+        {
+          "action": "operate",
+          "target": "SA_close",
+          "to": "closed",
+          "explain": "先合上断路器。"
+        },
+        {
+          "action": "run",
+          "explain": "断路器合上。"
+        },
+        {
+          "action": "operate",
+          "target": "SA_close",
+          "to": "open",
+          "explain": "把手复位。"
+        },
+        {
+          "action": "operate",
+          "target": "KOP",
+          "to": "closed",
+          "explain": "保护动作，跳闸出口接点闭合，HWJ 线圈被短接。"
+        },
+        {
+          "action": "run",
+          "explain": "TQ 动作，断路器跳开；常开辅助接点断开跳闸回路，TQ 失电。合闸回路经常闭辅助接点接通，TWJ 动作，绿灯亮。"
+        },
+        {
+          "action": "operate",
+          "target": "KOP",
+          "to": "open",
+          "explain": "故障切除后保护返回。"
+        },
+        {
+          "action": "run",
+          "explain": "保持分位。"
+        }
+      ]
+    }
+  ]
+}

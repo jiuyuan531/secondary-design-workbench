@@ -132,3 +132,53 @@ details.system summary { cursor: pointer; color: var(--muted); }
 .source-card.conflict { border-color: #ffcecb; background: #fff8f7; }
 .source-head { display: flex; justify-content: space-between; }
 .source-grid { display: grid; grid-template-columns: 170px 1fr; gap: 6px; }
+
+/* ---------- M2b 回路演示 ---------- */
+.content.wide { max-width: none; padding: 16px 20px; }
+.circuits-page { display: grid; grid-template-columns: 210px minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+.circuit-list h2, .circuit-side h2 { margin-top: 0; }
+.list-cat { color: var(--muted); font-size: 12px; margin: 10px 0 4px; }
+.circuit-item { display: flex; justify-content: space-between; align-items: center; gap: 4px; width: 100%; text-align: left; margin-bottom: 4px; }
+.circuit-item.active { border-color: var(--accent); background: #eef4ff; }
+.err-text { color: var(--err); }
+.badge.draft { background: #fff8c5; color: var(--warn); }
+.badge.on { background: #ffe8cc; color: #bc4c00; font-weight: 600; }
+.sim-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.sim-status { font-size: 13px; color: var(--muted); }
+.sim-status.stable { color: var(--ok); }
+.sim-status.oscillation, .sim-status.not_converged { color: var(--err); font-weight: 600; }
+svg.circuit { width: 100%; background: #fff; border: 1px solid var(--line); border-radius: 8px; max-height: 70vh; }
+.wire { fill: none; stroke: #57606a; stroke-width: 1.6; }
+.wire.hot { stroke: #d1242f; stroke-width: 3; }
+.node-label { font-size: 12px; fill: #57606a; font-weight: 600; text-anchor: middle; }
+.sym .lead { stroke: #57606a; stroke-width: 1.6; }
+.sym.hot .lead { stroke: #d1242f; stroke-width: 3; stroke-dasharray: 6 4; animation: flow .6s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -10; } }
+.sym .term { fill: #57606a; }
+.sym .blade { stroke: #24292f; stroke-width: 2.2; stroke-linecap: round; }
+.sym.hot .blade { stroke: #d1242f; }
+.sym .nc-mark { stroke: #24292f; stroke-width: 1.6; }
+.sym .body { fill: #fff; stroke: #24292f; stroke-width: 1.6; }
+.sym.energized .body { fill: #ffb366; stroke: #bc4c00; }
+.sym .body.lit { fill: #ffe066; }
+.sym .lamp-x { stroke: #24292f; stroke-width: 1.2; }
+.sym .arrow { fill: #d1242f; }
+.sym.operable { cursor: pointer; }
+.sym.operable .blade { stroke: #0969da; }
+.sym.operable .hit { fill: transparent; stroke: #0969da; stroke-dasharray: 3 3; stroke-width: 1; opacity: 0; }
+.sym.operable:hover .hit { opacity: 1; fill: #ddf4ff55; }
+.sym .fault-mark line { stroke: #cf222e; stroke-width: 3; }
+.sym-id { font-size: 12px; font-weight: 600; fill: #24292f; }
+.sym-label { font-size: 10px; fill: #656d76; }
+ul.reasons, ul.changes, ul.timers { margin: 4px 0; padding-left: 18px; font-size: 13px; }
+ul.reasons li.on { color: #bc4c00; font-weight: 600; }
+.side-box { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+.side-box select { width: 100%; }
+ol.steps { padding-left: 20px; font-size: 13px; }
+ol.steps li.done { color: var(--muted); }
+ol.steps li.current { font-weight: 700; color: var(--accent); }
+.explain { background: #f6f8fa; border-left: 3px solid var(--accent); padding: 8px 10px; margin-top: 8px; font-size: 13px; line-height: 1.6; }
+table.state-table { width: 100%; font-size: 13px; border-collapse: collapse; }
+table.state-table td { padding: 3px 4px; }
+.fault-toggle { margin: 4px 0; }
+.banner.small { font-size: 12px; padding: 6px 10px; }

@@ -4,6 +4,7 @@ import { HomePage } from "./pages/HomePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
 import { BoardPage } from "./pages/BoardPage";
+import { CircuitsPage } from "./pages/CircuitsPage";
 
 type PageKey = "home" | "board" | "circuits" | "questions" | "settings";
 
@@ -40,7 +41,7 @@ export function App() {
         ))}
         <div className="version">{info ? `v${info.appVersion}` : ""}</div>
       </nav>
-      <main className="content" key={epoch}>
+      <main className={page === "circuits" ? "content wide" : "content"} key={epoch}>
         {info?.startupError && (
           <div className="banner error">
             <strong>启动时出现问题：</strong>
@@ -52,7 +53,7 @@ export function App() {
             onOpenIssues={() => { setProjectId(null); setBoardTab("issues"); setPage("board"); }} />
         )}
         {page === "board" && <BoardPage key={`${boardTab}`} projectId={projectId} onOpenProject={openProject} initialTab={boardTab} />}
-        {page === "circuits" && <PlaceholderPage title="回路演示" milestone="M2" text="交互式二次回路仿真演示。" />}
+        {page === "circuits" && <CircuitsPage />}
         {page === "questions" && <PlaceholderPage title="题库复习" milestone="M3" text="题库、闪卡和间隔重复复习。" />}
         {page === "settings" && <SettingsPage onRestored={() => { reloadInfo(); setEpoch((e) => e + 1); setPage("home"); }} />}
       </main>

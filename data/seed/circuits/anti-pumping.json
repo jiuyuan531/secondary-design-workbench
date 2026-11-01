@@ -1,0 +1,337 @@
+{
+  "schemaVersion": 1,
+  "id": "anti-pumping",
+  "title": "防跳回路（带 / 不带防跳对比）",
+  "category": "控制回路",
+  "reviewStatus": "草稿",
+  "description": "串联型防跳：TBJ 电流线圈串在跳闸回路启动，电压线圈经自身常开接点自保持，常闭接点串在合闸回路。“去掉防跳”是演示用的短接线，闭合后相当于没有防跳。（草稿：示例为通用原理，接法、元件取值和讲解均待沈审核）",
+  "nodes": [
+    "+KM",
+    "-KM",
+    "c1",
+    "c2",
+    "c3",
+    "c4",
+    "t1",
+    "t2",
+    "t3"
+  ],
+  "components": [
+    {
+      "id": "QF",
+      "type": "breaker",
+      "label": "断路器",
+      "initialState": "open",
+      "operateDelayTicks": 1
+    },
+    {
+      "id": "TBJ",
+      "type": "relay",
+      "label": "防跳继电器"
+    },
+    {
+      "id": "SA_close",
+      "type": "contact_no",
+      "label": "操作把手合闸接点",
+      "operable": true,
+      "between": [
+        "+KM",
+        "c1"
+      ]
+    },
+    {
+      "id": "TBJ_nc",
+      "type": "contact_nc",
+      "label": "TBJ 常闭",
+      "controlledBy": "TBJ",
+      "between": [
+        "c1",
+        "c2"
+      ]
+    },
+    {
+      "id": "NOPUMP",
+      "type": "contact_no",
+      "label": "去掉防跳（演示用短接线）",
+      "operable": true,
+      "between": [
+        "c1",
+        "c2"
+      ]
+    },
+    {
+      "id": "TBJ_no",
+      "type": "contact_no",
+      "label": "TBJ 常开（自保持）",
+      "controlledBy": "TBJ",
+      "between": [
+        "c1",
+        "c4"
+      ]
+    },
+    {
+      "id": "TBJ_V",
+      "type": "coil",
+      "label": "TBJ 电压线圈",
+      "coilKind": "voltage",
+      "impedance": "high",
+      "drives": "TBJ",
+      "between": [
+        "c4",
+        "-KM"
+      ]
+    },
+    {
+      "id": "QF_b",
+      "type": "contact_nc",
+      "label": "断路器辅助常闭",
+      "controlledBy": "QF",
+      "between": [
+        "c2",
+        "c3"
+      ]
+    },
+    {
+      "id": "HQ",
+      "type": "coil",
+      "label": "合闸线圈",
+      "coilKind": "voltage",
+      "impedance": "low",
+      "drives": "QF",
+      "action": "close",
+      "between": [
+        "c3",
+        "-KM"
+      ]
+    },
+    {
+      "id": "KOP",
+      "type": "contact_no",
+      "label": "保护跳闸出口接点",
+      "operable": true,
+      "between": [
+        "+KM",
+        "t1"
+      ]
+    },
+    {
+      "id": "SA_trip",
+      "type": "contact_no",
+      "label": "操作把手跳闸接点",
+      "operable": true,
+      "between": [
+        "+KM",
+        "t1"
+      ]
+    },
+    {
+      "id": "TBJ_I",
+      "type": "coil",
+      "label": "TBJ 电流线圈",
+      "coilKind": "current",
+      "impedance": "low",
+      "drives": "TBJ",
+      "between": [
+        "t1",
+        "t2"
+      ]
+    },
+    {
+      "id": "QF_a",
+      "type": "contact_no",
+      "label": "断路器辅助常开",
+      "controlledBy": "QF",
+      "between": [
+        "t2",
+        "t3"
+      ]
+    },
+    {
+      "id": "TQ",
+      "type": "coil",
+      "label": "跳闸线圈",
+      "coilKind": "voltage",
+      "impedance": "low",
+      "drives": "QF",
+      "action": "trip",
+      "between": [
+        "t3",
+        "-KM"
+      ]
+    }
+  ],
+  "layout": {
+    "+KM": {
+      "x": 40,
+      "y": 60,
+      "points": [
+        [
+          40,
+          60
+        ],
+        [
+          40,
+          130
+        ],
+        [
+          40,
+          200
+        ],
+        [
+          40,
+          290
+        ],
+        [
+          40,
+          360
+        ]
+      ]
+    },
+    "-KM": {
+      "x": 900,
+      "y": 60,
+      "points": [
+        [
+          900,
+          60
+        ],
+        [
+          900,
+          130
+        ],
+        [
+          900,
+          200
+        ],
+        [
+          900,
+          290
+        ],
+        [
+          900,
+          360
+        ]
+      ]
+    },
+    "SA_close": {
+      "x": 140,
+      "y": 60,
+      "dir": "h"
+    },
+    "TBJ_nc": {
+      "x": 330,
+      "y": 60,
+      "dir": "h"
+    },
+    "NOPUMP": {
+      "x": 330,
+      "y": 130,
+      "dir": "h"
+    },
+    "TBJ_no": {
+      "x": 330,
+      "y": 200,
+      "dir": "h"
+    },
+    "TBJ_V": {
+      "x": 760,
+      "y": 200,
+      "dir": "h"
+    },
+    "QF_b": {
+      "x": 520,
+      "y": 60,
+      "dir": "h"
+    },
+    "HQ": {
+      "x": 760,
+      "y": 60,
+      "dir": "h"
+    },
+    "KOP": {
+      "x": 140,
+      "y": 290,
+      "dir": "h"
+    },
+    "SA_trip": {
+      "x": 140,
+      "y": 360,
+      "dir": "h"
+    },
+    "TBJ_I": {
+      "x": 330,
+      "y": 290,
+      "dir": "h"
+    },
+    "QF_a": {
+      "x": 520,
+      "y": 290,
+      "dir": "h"
+    },
+    "TQ": {
+      "x": 760,
+      "y": 290,
+      "dir": "h"
+    }
+  },
+  "scenarios": [
+    {
+      "title": "带防跳：合于故障",
+      "steps": [
+        {
+          "action": "operate",
+          "target": "KOP",
+          "to": "closed",
+          "explain": "模拟线路上有永久性故障：断路器一合上，保护就会动作，跳闸出口接点一直闭合。"
+        },
+        {
+          "action": "operate",
+          "target": "SA_close",
+          "to": "closed",
+          "explain": "运行人员手合，并且一直按住把手（合闸命令保持）。"
+        },
+        {
+          "action": "run",
+          "explain": "断路器合上 → 跳闸回路接通，TQ 动作把断路器跳开；同时 TBJ 电流线圈流过跳闸电流启动。TBJ 常开接点闭合，电压线圈经合闸命令自保持；常闭接点断开合闸回路。断路器停在分位，不再重合。"
+        },
+        {
+          "action": "operate",
+          "target": "SA_close",
+          "to": "open",
+          "explain": "松开把手，合闸命令消失。"
+        },
+        {
+          "action": "run",
+          "explain": "TBJ 电压线圈失电，TBJ 返回，回路恢复到可以再次合闸的状态。"
+        }
+      ]
+    },
+    {
+      "title": "去掉防跳：跳跃现象",
+      "steps": [
+        {
+          "action": "operate",
+          "target": "NOPUMP",
+          "to": "closed",
+          "explain": "用演示短接线把 TBJ 常闭接点短接，相当于没有防跳。"
+        },
+        {
+          "action": "operate",
+          "target": "KOP",
+          "to": "closed",
+          "explain": "同样模拟永久性故障，跳闸出口接点一直闭合。"
+        },
+        {
+          "action": "operate",
+          "target": "SA_close",
+          "to": "closed",
+          "explain": "手合并保持把手。"
+        },
+        {
+          "action": "run",
+          "explain": "断路器合上 → 被跳开 → 合闸回路又通 → 再合上 → 再跳开……这就是“跳跃”。引擎检测到状态循环，报告振荡。"
+        }
+      ]
+    }
+  ]
+}
