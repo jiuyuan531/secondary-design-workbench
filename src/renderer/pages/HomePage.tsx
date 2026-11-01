@@ -1,27 +1,85 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AppInfo, SelfCheckResult } from "../../shared/api";
+import type { Dashboard } from "../../board/repo";
+import { EnumBadge } from "../components/EnumBadge";
+import { call, today, dueText } from "../lib";
 
-export function HomePage({ info, onChanged }: { info: AppInfo | null; onChanged: () => void }) {
-  const [check, setCheck] = useState<SelfCheckResult | null>(null);
+export function HomePage({ info, onChanged, onOpenProject, onOpenIssues }: {
+  info: AppInfo | null; onChanged: () => void; onOpenProject: (id: number) => void; onOpenIssues: () => void;
+}) {
+  const [dash, setDash] = useState<Dashboard | null>(null);
   const [err, setErr] = useState<string | null>(null);
-
-  const runCheck = async () => {
-    setErr(null);
-    try {
-      setCheck(await window.api.selfCheck());
-      onChanged();
-    } catch (e) {
-      setErr((e as Error).message);
-    }
-  };
+  useEffect(() => {
+    if (info?.dbVersion == null) return;
+    call(window.api.board.dashboard(today())).then(setDash).catch((e) => setErr(e.message));
+  }, [info]);
 
   if (!info) return <p>加载中……</p>;
   return (
     <section>
       <h1>首页</h1>
-      <p className="muted">工作进度和学习进度的仪表盘将在 M1、M3 加入。当前版本（M0）用于确认程序能在本机正常启动并读写数据库。</p>
+      {err && <div className="banner error">{err}</div>}
+      {dash && (
+        <>
+          <div className="stats">
+            <div className="stat"><div className="stat-num">{dash.totals.activeProjects}</div><div className="stat-label">进行中的项目</div></div>
+            <div className="stat"><div className="stat-num">{dash.upcoming.length}</div><div className="stat-label">14 天内到期（含逾期）</div></div>
+            <button className="stat clickable" onClick={onOpenIssues}><div className="stat-num">{dash.totals.openIssues}</div><div className="stat-label">未解决的问题</div></button>
+          </div>
 
-      <h2>数据库状态</h2>
+          <h2>近期截止</h2>
+          {dash.upcoming.length === 0 ? <p className="muted">14 天内没有到期的卷册或任务。</p> : (
+            <table className="grid clickable">
+              <thead><tr><th>到期</th><th>类型</th><th>内容</th><th>项目</th><th>状态</th></tr></thead>
+              <tbody>
+                {dash.upcoming.map((u) => (
+                  <tr key={`${u.kind}-${u.id}`} onClick={() => onOpenProject(u.project_id)}>
+                    <td className={u.days_left < 0 ? "overdue" : u.days_left <= 7 ? "due-soon" : ""}>{u.due_date}<br /><small>{dueText(u.days_left)}</small></td>
+                    <td>{u.kind === "volume" ? "卷册" : "任务"}</td>
+                    <td className="pre">{u.title}</td>
+                    <td>{u.project_name}</td>
+                    <td>{u.kind === "volume" ? <EnumBadge k="volumeStatus" v={u.status} /> : <EnumBadge k="taskStatus" v={u.status} />}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          <h2>各项目未解决问题</h2>
+          {dash.openIssuesByProject.length === 0 ? <p className="muted">没有未解决的问题。</p> : (
+            <table className="grid clickable">
+              <thead><tr><th>项目</th><th>未解决</th><th>已提交厂家或设总</th><th>其中来源矛盾</th></tr></thead>
+              <tbody>
+                {dash.openIssuesByProject.map((r) => (
+                  <tr key={r.project_id} onClick={() => onOpenProject(r.project_id)}>
+                    <td>{r.project_name}</td>
+                    <td>{r.open ? <span className="count-open">{r.open}</span> : 0}</td>
+                    <td>{r.submitted}</td>
+                    <td>{r.conflicts}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <p className="muted small">学习进度（今日待复习）将在 M3 加入。</p>
+        </>
+      )}
+      <SystemStatus info={info} onChanged={onChanged} />
+    </section>
+  );
+}
+
+function SystemStatus({ info, onChanged }: { info: AppInfo; onChanged: () => void }) {
+  const [open, setOpen] = useState(info.dbVersion === null);
+  const [check, setCheck] = useState<SelfCheckResult | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const runCheck = async () => {
+    setErr(null);
+    try { setCheck(await window.api.selfCheck()); onChanged(); } catch (e) { setErr((e as Error).message); }
+  };
+  return (
+    <details className="system" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
+      <summary>系统状态</summary>
       <table className="kv">
         <tbody>
           <tr><th>数据库文件</th><td><code>{info.dbPath}</code> <button className="link" onClick={() => window.api.openPath(dirname(info.dbPath))}>打开所在文件夹</button></td></tr>
@@ -32,17 +90,17 @@ export function HomePage({ info, onChanged }: { info: AppInfo | null; onChanged:
           <tr><th>运行环境</th><td>Electron {info.electronVersion} · {info.platform}</td></tr>
         </tbody>
       </table>
-
-      <h2>读写自检</h2>
-      <p className="muted">点击后会往数据库写入一条自检记录，再从磁盘上的文件重新读出来核对。</p>
-      <button className="primary" onClick={runCheck} disabled={info.dbVersion === null}>运行读写自检</button>
+      <p>
+        <button onClick={runCheck} disabled={info.dbVersion === null}>运行读写自检</button>
+        <span className="muted"> 往数据库写入一条自检记录，再从磁盘上的文件读出来核对。</span>
+      </p>
       {check && (
         <div className={check.ok ? "banner ok" : "banner error"}>
           {check.ok ? "✓ 读写正常" : "✗ 写入的数据没有在磁盘文件里读到"}：累计自检 {check.totalRows} 次，最后一次 {new Date(check.at).toLocaleString("zh-CN")}
         </div>
       )}
       {err && <div className="banner error">自检失败：{err}</div>}
-    </section>
+    </details>
   );
 }
 

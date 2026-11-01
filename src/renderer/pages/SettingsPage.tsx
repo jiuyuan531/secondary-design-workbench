@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { call } from "../lib";
 import { visibleSettings, type SettingDef, type SettingValue } from "../../settings/schema";
 
 /** 设置页：完全由 src/settings/schema.ts 驱动，不在这里手写任何说明文字。 */
-export function SettingsPage() {
+export function SettingsPage({ onRestored }: { onRestored: () => void }) {
   const [values, setValues] = useState<Record<string, SettingValue> | null>(null);
   const [restartNeeded, setRestartNeeded] = useState(false);
   const defs = useMemo(() => visibleSettings(), []);
@@ -35,7 +36,42 @@ export function SettingsPage() {
           ))}
         </div>
       ))}
+      <BackupPanel onRestored={onRestored} />
     </section>
+  );
+}
+
+function BackupPanel({ onRestored }: { onRestored: () => void }) {
+  const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const backup = async () => {
+    setMsg(null);
+    try {
+      const r = await call(window.api.data.backup());
+      if (r) setMsg({ kind: "ok", text: `已备份到 ${r.path}（${r.summary}）` });
+    } catch (e) { setMsg({ kind: "error", text: (e as Error).message }); }
+  };
+  const restore = async () => {
+    setMsg(null);
+    try {
+      const picked = await call(window.api.data.pickRestore());
+      if (!picked) return;
+      if (!picked.check.ok) { setMsg({ kind: "error", text: picked.check.error ?? "无法恢复这个文件" }); return; }
+      if (!window.confirm(`确定用这个备份替换当前全部数据吗？\n\n${picked.path}\n备份内容：${picked.check.summary}\n\n当前数据会先自动备份一份，万一选错了还能找回。`)) return;
+      const r = await call(window.api.data.restore(picked.path));
+      window.alert(`恢复完成（${r.summary}）。\n恢复前的数据已自动备份到：\n${r.safetyBackup}`);
+      onRestored();
+    } catch (e) { setMsg({ kind: "error", text: (e as Error).message }); }
+  };
+  return (
+    <div className="setting-group">
+      <h2>备份与恢复</h2>
+      <p className="muted">备份会把整个数据库（项目、卷册、任务、问题、设置）存成一个 .db 文件。建议放在 U 盘或另一块硬盘上。恢复会用备份文件替换当前全部数据，替换前会自动把当前数据再备份一份。</p>
+      <div className="setting-input">
+        <button className="primary" onClick={backup}>备份数据库…</button>
+        <button onClick={restore}>从备份恢复…</button>
+      </div>
+      {msg && <div className={msg.kind === "ok" ? "msg ok" : "msg error"}>{msg.text}</div>}
+    </div>
   );
 }
 
