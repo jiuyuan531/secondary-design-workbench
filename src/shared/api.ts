@@ -55,6 +55,10 @@ export interface WorkbenchApi {
   circuits: {
     list(): Promise<Result<CircuitListItem[]>>;
     read(file: string): Promise<Result<string>>;
+    /** 保存回路文件（先校验格式）；create 为 true 时不允许覆盖已有文件 */
+    write(file: string, text: string, create?: boolean): Promise<Result<{ file: string; historyKept: boolean }>>;
+    /** 用系统默认程序打开《回路数据格式》说明 */
+    openFormatDoc(): Promise<Result<string>>;
   };
 
   data: {

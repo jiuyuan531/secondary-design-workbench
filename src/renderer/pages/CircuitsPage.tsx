@@ -1,35 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CircuitListItem } from "../../shared/api";
-import {
-  loadCircuit, initialState, operate, step, run, stateKey, DEFAULT_MAX_TICKS,
-  type Circuit, type SimState, type TickReport, type RunStatus, type ScenarioStep,
-} from "../../engine/index";
+import { loadCircuit, step, DEFAULT_MAX_TICKS, type Circuit, type ScenarioStep } from "../../engine/index";
 import { powerNodes } from "../../engine/validate";
 import { CircuitView } from "../circuit/CircuitView";
+import { CircuitEditor, blankCircuitText, copyCircuitText } from "../circuit/CircuitEditor";
+import {
+  newSim, tickOnce, runToEnd, applyOperate, playStep, newPlayer, hasSomethingToPlay,
+  type Sim, type Player,
+} from "../circuit/session";
 import { call } from "../lib";
 
-interface Sim {
-  circuit: Circuit;
-  state: SimState;
-  tick: number;
-  /** 最近若干个 tick 的输出（最新在前） */
-  log: TickReport[];
-  status: { kind: RunStatus | "idle" | "running"; text: string };
-  /** 本轮（上次操作后）出现过的状态，用于自动播放时检测振荡 */
-  seen: Map<string, number>;
-}
+const SPEEDS = [
+  { label: "慢", ms: 1200 },
+  { label: "中", ms: 700 },
+  { label: "快", ms: 300 },
+];
 
-const LOG_LIMIT = 50;
-
-function settle(c: Circuit, maxTicks: number): SimState {
-  const r = run(c, initialState(c), { maxTicks });
-  return r.status === "stable" ? r.finalState : initialState(c);
-}
+type EditorState = { file: string | null; text: string } | null;
 
 export function CircuitsPage() {
   const [list, setList] = useState<CircuitListItem[] | null>(null);
   const [listErr, setListErr] = useState<string | null>(null);
   const [file, setFile] = useState<string | null>(null);
+  const [fileText, setFileText] = useState<string>("");
   const [sim, setSim] = useState<Sim | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [maxTicks, setMaxTicks] = useState(DEFAULT_MAX_TICKS);
@@ -37,164 +30,244 @@ export function CircuitsPage() {
   const [stepIdx, setStepIdx] = useState(0);
   const [explain, setExplain] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [speed, setSpeed] = useState(SPEEDS[1].ms);
+  const [big, setBig] = useState(false);
+  const [editor, setEditor] = useState<EditorState>(null);
+  const [circuitsDir, setCircuitsDir] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // 自动播放用 ref 读最新值，避免定时器拿到旧状态
+  const simRef = useRef(sim);
+  simRef.current = sim;
+  const playerRef = useRef<Player | null>(null);
   const timer = useRef<number | null>(null);
+  const speedRef = useRef(speed);
+  speedRef.current = speed;
+
+  const refreshList = (select?: string) =>
+    call(window.api.circuits.list())
+      .then((l) => {
+        setList(l);
+        setListErr(null);
+        if (select) setFile(select);
+        else setFile((cur) => (cur && l.some((x) => x.file === cur) ? cur : l.find((x) => !x.error)?.file ?? null));
+      })
+      .catch((e) => setListErr(e.message));
 
   useEffect(() => {
-    call(window.api.circuits.list()).then((l) => { setList(l); if (l.length && !file) setFile(l.find((x) => !x.error)?.file ?? null); }).catch((e) => setListErr(e.message));
+    refreshList();
     window.api.getSettings().then((s) => setMaxTicks(Number(s["sim.maxTicks"]) || DEFAULT_MAX_TICKS));
+    window.api.getAppInfo().then((i) => setCircuitsDir(i.circuitsDir));
+    return stop;
   }, []);
 
+  // 大图模式下按 Esc 退出
+  useEffect(() => {
+    if (!big) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !editor) setBig(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [big, editor]);
+
   const limit = sim?.circuit.maxTicks ?? maxTicks;
+  const limitRef = useRef(limit);
+  limitRef.current = limit;
 
   const reset = (c: Circuit) => {
     stop();
-    const st = settle(c, c.maxTicks ?? maxTicks);
-    setSim({ circuit: c, state: st, tick: 0, log: [], status: { kind: "idle", text: "已复位到初始稳定状态" }, seen: new Map([[stateKey(st), 0]]) });
+    setSim(newSim(c, c.maxTicks ?? maxTicks));
     setStepIdx(0);
     setExplain(null);
+    setNotice(null);
   };
 
   useEffect(() => {
-    if (!file) return;
+    if (!file) { setSim(null); return; }
     setLoadErr(null);
     call(window.api.circuits.read(file))
-      .then((text) => { const { circuit } = loadCircuit(text); reset(circuit); setScenarioIdx(circuit.scenarios?.length ? 0 : -1); })
+      .then((text) => {
+        setFileText(text);
+        const { circuit } = loadCircuit(text);
+        reset(circuit);
+        setScenarioIdx(circuit.scenarios?.length ? 0 : -1);
+      })
       .catch((e) => { setSim(null); setLoadErr((e as Error).message); });
     return stop;
-  }, [file, maxTicks]);
+  }, [file, maxTicks, reloadKey]);
 
   const preview = useMemo(() => (sim ? step(sim.circuit, sim.state, sim.tick + 1).report : null), [sim]);
+  const scenario = sim && scenarioIdx >= 0 ? sim.circuit.scenarios?.[scenarioIdx] : undefined;
+  const scenarioRef = useRef(scenario);
+  scenarioRef.current = scenario;
 
   function stop() {
-    if (timer.current != null) window.clearInterval(timer.current);
+    if (timer.current != null) window.clearTimeout(timer.current);
     timer.current = null;
+    playerRef.current = null;
     setPlaying(false);
   }
 
-  /** 推进一个 tick，返回是否应停止（稳定 / 振荡 / 超限） */
-  const tickOnce = (s: Sim): Sim => {
-    const { state, report } = step(s.circuit, s.state, s.tick + 1);
-    const t = s.tick + 1;
-    const key = stateKey(state);
-    const prevKey = stateKey(s.state);
-    let status: Sim["status"] = { kind: "running", text: `第 ${t} 个 tick` };
-    const seen = new Map(s.seen);
-    if (key === prevKey && report.timers.length === 0) status = { kind: "stable", text: `第 ${t} 个 tick 后状态不再变化，回路稳定` };
-    else if (seen.has(key)) status = { kind: "oscillation", text: `检测到振荡：第 ${t} 个 tick 后的状态与第 ${seen.get(key)} 个 tick 后完全相同，回路会一直循环（例如跳跃现象）` };
-    else if (seen.size > limit) status = { kind: "not_converged", text: `仿真未收敛：已运行 ${limit} 个 tick 仍未稳定，也没有检测到振荡` };
-    seen.set(key, t);
-    return { ...s, state, tick: t, log: [report, ...s.log].slice(0, LOG_LIMIT), status, seen };
+  const doTick = () => { setNotice(null); setSim((s) => (s ? tickOnce(s, limit) : s)); };
+  const doRun = () => { setNotice(null); setSim((s) => (s ? runToEnd(s, limit) : s)); };
+
+  const loop = () => {
+    const s = simRef.current;
+    const p = playerRef.current;
+    if (!s || !p) { stop(); return; }
+    const r = playStep(s, scenarioRef.current, p, limitRef.current);
+    simRef.current = r.sim;
+    setSim(r.sim);
+    playerRef.current = r.player;
+    setStepIdx(r.player.stepIdx);
+    if (r.explain !== undefined) setExplain(r.explain);
+    if (r.done) { stop(); setNotice(r.message ?? null); return; }
+    timer.current = window.setTimeout(loop, r.pause === "tick" ? speedRef.current : speedRef.current * 2.5);
   };
-
-  const doTick = () => setSim((s) => (s ? tickOnce(s) : s));
-
-  const doRun = () => setSim((s) => {
-    if (!s) return s;
-    const r = run(s.circuit, s.state, { maxTicks: limit, startTick: s.tick });
-    const seen = new Map([[stateKey(r.finalState), s.tick + r.ticks.length]]);
-    return {
-      ...s, state: r.finalState, tick: s.tick + r.ticks.length,
-      log: [...[...r.ticks].reverse(), ...s.log].slice(0, LOG_LIMIT),
-      status: { kind: r.status, text: r.message + (r.cycle ? `（循环区间：第 ${r.cycle.from}～${r.cycle.to} 个 tick）` : "") },
-      seen,
-    };
-  });
 
   const togglePlay = () => {
     if (playing) { stop(); return; }
+    let s = simRef.current;
+    if (!s) return;
+    let from = stepIdx;
+    if (!hasSomethingToPlay(s, scenario, from)) {
+      if (!scenario) {
+        setNotice("回路现在是稳定的，没有可以播放的变化。先点击图上的蓝色接点（或者在右侧选一个演示场景），再点“自动播放”，就能一步一步看到回路的动作过程。");
+        return;
+      }
+      // 场景已经播完：从头重播
+      s = newSim(s.circuit, limit);
+      simRef.current = s;
+      setSim(s);
+      setExplain(null);
+      from = 0;
+      setStepIdx(0);
+    }
+    setNotice(null);
+    playerRef.current = newPlayer(from);
     setPlaying(true);
-    timer.current = window.setInterval(() => {
-      setSim((s) => {
-        if (!s) return s;
-        const n = tickOnce(s);
-        if (n.status.kind !== "running") stop();
-        return n;
-      });
-    }, 700);
+    timer.current = window.setTimeout(loop, 150);
   };
 
-  const applyOperate = (target: string, to: string) => setSim((s) => {
-    if (!s) return s;
-    try {
-      const st = operate(s.circuit, s.state, target, to);
-      return { ...s, state: st, status: { kind: "idle", text: `已操作 ${target}，点“单步”或“运行到稳定”观察回路变化` }, seen: new Map([[stateKey(st), s.tick]]) };
-    } catch (e) {
-      return { ...s, status: { kind: "idle", text: (e as Error).message } };
-    }
-  });
+  const operateNow = (target: string, to: string) => { setNotice(null); setSim((s) => (s ? applyOperate(s, target, to) : s)); };
 
   const toggleContact = (id: string) => {
     if (!sim) return;
     stop();
-    applyOperate(id, sim.state.manual[id] ? "open" : "closed");
+    operateNow(id, sim.state.manual[id] ? "open" : "closed");
   };
 
-  const scenario = sim && scenarioIdx >= 0 ? sim.circuit.scenarios?.[scenarioIdx] : undefined;
   const nextStep = () => {
     if (!scenario || stepIdx >= scenario.steps.length) return;
     stop();
     const st: ScenarioStep = scenario.steps[stepIdx];
-    if (st.action === "operate") applyOperate(st.target!, st.to!);
+    if (st.action === "operate") operateNow(st.target!, st.to!);
     else if (st.action === "tick") doTick();
     else doRun();
     setExplain(st.explain ?? null);
     setStepIdx(stepIdx + 1);
   };
 
+  const openEditor = (mode: "edit" | "copy" | "blank") => {
+    stop();
+    if (mode === "edit" && file) setEditor({ file, text: fileText });
+    else if (mode === "copy" && fileText) setEditor({ file: null, text: copyCircuitText(fileText) });
+    else setEditor({ file: null, text: blankCircuitText() });
+  };
+
+  const onSaved = (saved: string) => {
+    setEditor(null);
+    if (saved === file) setReloadKey((k) => k + 1);
+    refreshList(saved);
+  };
+
   const faults = sim?.circuit.components.filter((c) => c.type === "fault_injection") ?? [];
   const relays = sim?.circuit.components.filter((c) => c.type === "relay" || c.type === "breaker") ?? [];
   const latest = sim?.log[0];
+  const brokenFile = list?.find((x) => x.file === file)?.error;
 
   return (
-    <section className="circuits-page">
-      <aside className="circuit-list">
-        <h2>回路库</h2>
-        {listErr && <div className="banner error">{listErr}</div>}
-        {list?.length === 0 && <p className="muted">回路数据目录里没有回路文件。</p>}
-        {groupBy(list ?? [], (x) => x.category ?? "读入失败").map(([cat, items]) => (
-          <div key={cat}>
-            <div className="list-cat">{cat}</div>
-            {items.map((it) => (
-              <button key={it.file} className={it.file === file ? "circuit-item active" : "circuit-item"} onClick={() => setFile(it.file)} title={it.error ?? it.file}>
-                {it.error ? <span className="err-text">⚠ {it.file}</span> : it.title}
-                {it.reviewStatus === "草稿" && <span className="badge draft">草稿</span>}
-              </button>
-            ))}
+    <section className={big ? "circuits-page big" : "circuits-page"}>
+      {!big && (
+        <aside className="circuit-list">
+          <h2>回路库</h2>
+          {listErr && <div className="banner error">{listErr}</div>}
+          {list?.length === 0 && <p className="muted">回路数据目录里没有回路文件。</p>}
+          {groupBy(list ?? [], (x) => x.category ?? "读入失败").map(([cat, items]) => (
+            <div key={cat}>
+              <div className="list-cat">{cat}</div>
+              {items.map((it) => (
+                <button key={it.file} className={it.file === file ? "circuit-item active" : "circuit-item"} onClick={() => setFile(it.file)} title={it.error ?? it.file}>
+                  {it.error ? <span className="err-text">⚠ {it.file}</span> : it.title}
+                  {it.reviewStatus === "草稿" && <span className="badge draft">草稿</span>}
+                </button>
+              ))}
+            </div>
+          ))}
+          <div className="list-actions">
+            <button onClick={() => openEditor("blank")}>＋ 新建回路</button>
+            <button onClick={() => openEditor("copy")} disabled={!sim} title="以当前选中的回路为底稿另存一份">复制当前回路</button>
+            <button onClick={() => openEditor("edit")} disabled={!file} title="编辑当前回路文件">编辑当前回路</button>
+            <button className="link" onClick={() => refreshList()}>刷新列表</button>
+            {circuitsDir && <button className="link" onClick={() => window.api.openPath(circuitsDir)}>打开回路文件夹</button>}
           </div>
-        ))}
-      </aside>
+        </aside>
+      )}
 
       <div className="circuit-main">
-        {loadErr && <div className="banner error"><pre>{loadErr}</pre></div>}
+        {loadErr && (
+          <div className="banner error">
+            <pre>{loadErr}</pre>
+            {brokenFile && file && <button onClick={() => call(window.api.circuits.read(file)).then((t) => setEditor({ file, text: t }))}>打开编辑器修改这个文件</button>}
+          </div>
+        )}
         {sim && preview && (
           <>
             <div className="title-row">
               <h1>{sim.circuit.title}</h1>
               {sim.circuit.reviewStatus !== "已审核" && <span className="badge draft">草稿 · 待审核</span>}
+              <span className="spacer" />
+              <button onClick={() => setBig(!big)} title={big ? "回到普通视图（Esc）" : "全窗口显示回路图"}>{big ? "退出大图（Esc）" : "⛶ 放大查看"}</button>
             </div>
-            {sim.circuit.reviewStatus !== "已审核" && (
+            {!big && sim.circuit.reviewStatus !== "已审核" && (
               <div className="banner warn small">这是程序附带的草稿回路，接法、元件高低阻取值和讲解都还没有经过审核，仅用于演示程序功能。</div>
             )}
             <div className="sim-controls">
               <button onClick={() => { stop(); doTick(); }} disabled={playing}>单步</button>
               <button onClick={() => { stop(); doRun(); }} disabled={playing}>运行到稳定</button>
-              <button onClick={togglePlay}>{playing ? "暂停" : "自动播放"}</button>
+              <button className={playing ? "" : "primary"} onClick={togglePlay}
+                title={scenario ? "按右侧场景的步骤自动演示，每一步之间稍作停顿；“运行到稳定”会逐个 tick 慢放" : "把回路从当前状态逐个 tick 慢放到稳定；先点接点改变状态再播放"}>
+                {playing ? "⏸ 暂停" : "▶ 自动播放"}
+              </button>
+              <label className="speed">速度
+                <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))}>
+                  {SPEEDS.map((x) => <option key={x.ms} value={x.ms}>{x.label}</option>)}
+                </select>
+              </label>
               <button onClick={() => reset(sim.circuit)}>重置</button>
               <span className={`sim-status ${sim.status.kind}`}>tick {sim.tick} · {sim.status.text}</span>
             </div>
-            <CircuitView circuit={sim.circuit} state={sim.state} preview={preview} onToggle={toggleContact} positive={powerNodes(sim.circuit).positive} />
-            <p className="muted small">点击蓝色接点切换通断。红色粗线为当前导通路径（箭头为电流方向），橙色线圈表示按当前状态判定会动作。</p>
+            {notice && <div className="banner info small">{notice}</div>}
+            {big && explain && <div className="explain">{explain}</div>}
+            <CircuitView circuit={sim.circuit} state={sim.state} preview={preview} onToggle={toggleContact}
+              positive={powerNodes(sim.circuit).positive} className={big ? "big" : ""}
+              onBlankDoubleClick={() => setBig(!big)} />
+            <p className="muted small">点击蓝色接点切换通断。红色粗线为当前导通路径（箭头为电流方向），橙色线圈表示按当前状态判定会动作。滚轮缩放，按住空白处拖动，双击空白处{big ? "退出" : "进入"}大图。</p>
             {preview.notes.length > 0 && <div className="banner warn">{preview.notes.join("；")}</div>}
-            <h2>当前状态下的线圈判定</h2>
-            <ul className="reasons">
-              {preview.coils.map((c) => <li key={c.id} className={c.energized ? "on" : ""}>{c.reason}</li>)}
-            </ul>
-            {latest && (
+            {!big && (
               <>
-                <h2>第 {latest.tick} 个 tick 的变化</h2>
-                {latest.changes.length ? <ul className="changes">{latest.changes.map((c, i) => <li key={i}>{c.text}</li>)}</ul> : <p className="muted">没有变化</p>}
-                {latest.timers.length > 0 && <ul className="timers">{latest.timers.map((t) => <li key={t.id}>{t.text}</li>)}</ul>}
-                {latest.notes.length > 0 && <div className="banner warn">{latest.notes.join("；")}</div>}
+                <h2>当前状态下的线圈判定</h2>
+                <ul className="reasons">
+                  {preview.coils.map((c) => <li key={c.id} className={c.energized ? "on" : ""}>{c.reason}</li>)}
+                </ul>
+                {latest && (
+                  <>
+                    <h2>第 {latest.tick} 个 tick 的变化</h2>
+                    {latest.changes.length ? <ul className="changes">{latest.changes.map((c, i) => <li key={i}>{c.text}</li>)}</ul> : <p className="muted">没有变化</p>}
+                    {latest.timers.length > 0 && <ul className="timers">{latest.timers.map((t) => <li key={t.id}>{t.text}</li>)}</ul>}
+                    {latest.notes.length > 0 && <div className="banner warn">{latest.notes.join("；")}</div>}
+                  </>
+                )}
               </>
             )}
           </>
@@ -217,14 +290,21 @@ export function CircuitsPage() {
                     ))}
                   </ol>
                   <div className="toolbar">
-                    <button className="primary" onClick={nextStep} disabled={stepIdx >= scenario.steps.length}>
+                    <button className="primary" onClick={nextStep} disabled={playing || stepIdx >= scenario.steps.length}>
                       {stepIdx >= scenario.steps.length ? "场景已完成" : "下一步"}
                     </button>
                     <button onClick={() => reset(sim.circuit)}>从头开始</button>
                   </div>
-                  {explain && <div className="explain">{explain}</div>}
+                  {!big && explain && <div className="explain">{explain}</div>}
                 </>
               )}
+            </div>
+          )}
+          {big && latest && (
+            <div className="side-box">
+              <h2>第 {latest.tick} 个 tick 的变化</h2>
+              {latest.changes.length ? <ul className="changes">{latest.changes.map((c, i) => <li key={i}>{c.text}</li>)}</ul> : <p className="muted">没有变化</p>}
+              {latest.timers.length > 0 && <ul className="timers">{latest.timers.map((t) => <li key={t.id}>{t.text}</li>)}</ul>}
             </div>
           )}
           <div className="side-box">
@@ -245,19 +325,24 @@ export function CircuitsPage() {
               {faults.map((f) => f.type === "fault_injection" && (
                 <label key={f.id} className="switch fault-toggle">
                   <input type="checkbox" checked={sim.state.faults.includes(f.id)}
-                    onChange={(e) => { stop(); applyOperate(f.id, e.target.checked ? "active" : "inactive"); }} />
+                    onChange={(e) => { stop(); operateNow(f.id, e.target.checked ? "active" : "inactive"); }} />
                   {f.label ?? f.id}<span className="muted small">（{f.target}）</span>
                 </label>
               ))}
             </div>
           )}
-          {sim.circuit.description && (
+          {!big && sim.circuit.description && (
             <div className="side-box">
               <h2>为什么这么接</h2>
               <p className="pre">{sim.circuit.description}</p>
             </div>
           )}
         </aside>
+      )}
+
+      {editor && (
+        <CircuitEditor file={editor.file} initialText={editor.text} existingFiles={(list ?? []).map((x) => x.file)}
+          onClose={() => setEditor(null)} onSaved={onSaved} />
       )}
     </section>
   );

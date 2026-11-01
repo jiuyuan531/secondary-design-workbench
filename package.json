@@ -31,6 +31,10 @@
       {
         "from": "data/seed",
         "to": "seed"
+      },
+      {
+        "from": "docs/回路数据格式.md",
+        "to": "docs/回路数据格式.md"
       }
     ],
     "asarUnpack": [

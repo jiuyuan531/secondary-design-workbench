@@ -202,6 +202,34 @@ function registerIpc(): void {
     });
   });
   handle("circuits:read", (file: string) => fs.readFileSync(circuitFile(file), "utf8"));
+  /**
+   * 保存回路文件。先校验格式，不合格不写；覆盖已有文件前把旧内容存到“历史版本”子目录。
+   * create 为 true 时文件已存在就报错，避免新建时误覆盖。
+   */
+  handle("circuits:write", (file: string, text: string, create?: boolean) => {
+    const dest = circuitFile(file);
+    loadCircuit(text);
+    const exists = fs.existsSync(dest);
+    if (create && exists) throw new Error(`回路文件夹里已经有 ${file}，请换一个文件名`);
+    if (exists) {
+      const hist = path.join(circuitsDir, "历史版本");
+      fs.mkdirSync(hist, { recursive: true });
+      fs.copyFileSync(dest, path.join(hist, `${file.replace(/\.json$/, "")}-${timestamp()}.json`));
+    }
+    const tmp = dest + ".tmp";
+    fs.writeFileSync(tmp, text, "utf8");
+    fs.renameSync(tmp, dest);
+    return { file, historyKept: exists };
+  });
+  handle("circuits:openFormatDoc", async () => {
+    const doc = app.isPackaged
+      ? path.join(process.resourcesPath, "docs", "回路数据格式.md")
+      : path.join(app.getAppPath(), "docs", "回路数据格式.md");
+    if (!fs.existsSync(doc)) throw new Error(`找不到格式说明文件：${doc}`);
+    const err = await shell.openPath(doc);
+    if (err) throw new Error(`打不开格式说明：${err}`);
+    return doc;
+  });
 
   // ---------------- 备份 / 恢复 ----------------
   ipcMain.handle("data:backup", async (e) => wrap(async () => {

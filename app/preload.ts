@@ -21,6 +21,8 @@ const api: WorkbenchApi = {
   circuits: {
     list: () => ipcRenderer.invoke("circuits:list"),
     read: (file) => ipcRenderer.invoke("circuits:read", file),
+    write: (file, text, create) => ipcRenderer.invoke("circuits:write", file, text, create),
+    openFormatDoc: () => ipcRenderer.invoke("circuits:openFormatDoc"),
   },
   data: {
     backup: () => ipcRenderer.invoke("data:backup"),
