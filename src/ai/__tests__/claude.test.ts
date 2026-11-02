@@ -58,7 +58,9 @@ describe("生成结果检查", () => {
 describe("调用 Claude Code（用假命令测试）", () => {
   it("命令行参数里不含用户内容，工具全部关闭", () => {
     const { args } = commandLine({ command: "", timeoutMs: 1, cwd: "." });
-    expect(args).toEqual(["-p", "--output-format", "json", "--tools", "", "--strict-mcp-config", "--no-session-persistence"]);
+    // Windows 上经 cmd 启动，空参数要写成 "" 才能传过去
+    const empty = process.platform === "win32" ? '""' : "";
+    expect(args).toEqual(["-p", "--output-format", "json", "--tools", empty, "--strict-mcp-config", "--no-session-persistence"]);
   });
 
   it("一次通过：返回规范化的回路和说明，提示词从标准输入传入", async () => {

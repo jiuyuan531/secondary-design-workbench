@@ -7,6 +7,7 @@
  * - 生成后由程序检查格式和仿真，有问题就把问题发回去让它修正，最多 maxAttempts 次。
  */
 import { spawn, type ChildProcess } from "node:child_process";
+import fs from "node:fs";
 import { buildCircuitPrompt, checkGeneratedCircuit, extractCircuitJson, type PromptInput } from "./circuitPrompt";
 
 export interface RunnerOptions {
@@ -61,6 +62,12 @@ export function commandLine(opts: RunnerOptions): { file: string; args: string[]
 export function askClaude(prompt: string, opts: RunnerOptions): Promise<ClaudeAnswer> {
   return new Promise((resolve, reject) => {
     const { file, args, shell } = commandLine(opts);
+    // 写的是路径时先检查文件在不在：中文 Windows 的 cmd 报错是 GBK 编码，按 UTF-8 读出来是乱码，没法靠报错文字判断
+    const cmd = opts.command.trim();
+    if (/[\\/]/.test(cmd) && !fs.existsSync(cmd.replace(/^"|"$/g, ""))) {
+      reject(new ClaudeError(notFound(opts, `文件不存在：${cmd}`)));
+      return;
+    }
     let child: ChildProcess;
     try {
       child = spawn(file, args, { cwd: opts.cwd, shell, windowsHide: true, env: process.env });
@@ -87,8 +94,8 @@ export function askClaude(prompt: string, opts: RunnerOptions): Promise<ClaudeAn
         return;
       }
       const msg = (parsed?.result || err || out).trim().slice(0, 1500);
-      // Windows 的 cmd 找不到命令时退出码是 9009
-      if (code === 9009 || /is not recognized|不是内部或外部命令|command not found/i.test(msg)) { reject(new ClaudeError(notFound(opts, msg))); return; }
+      // Windows 的 cmd 找不到命令时退出码是 9009；路径写错时是 1，并提示“系统找不到指定的路径”
+      if (code === 9009 || /is not recognized|不是内部或外部命令|command not found|cannot find the (path|file) specified|系统找不到指定的(路径|文件)/i.test(msg)) { reject(new ClaudeError(notFound(opts, msg))); return; }
       reject(new ClaudeError(`Claude Code 运行出错（退出码 ${code}）：\n${msg || "没有输出"}\n\n如果提示没有登录，请先在命令行运行一次 claude 完成登录。`));
     }));
     child.stdin!.on("error", () => { /* 进程提前退出时写入会失败，以退出结果为准 */ });
