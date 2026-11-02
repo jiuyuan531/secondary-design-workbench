@@ -3,6 +3,8 @@ import type { SettingValue } from "../settings/schema";
 import type { EntityName, Row } from "../board/model";
 import type { Dashboard, ListFilter } from "../board/repo";
 import type { BackupCheck } from "../db/backup";
+import type { Question, QuestionInput, ReviewStatus } from "../questions/model";
+import type { QuestionFilter, QuestionWithProgress, TodayQueue, AnswerResult, ReviewStats, ImportPreview } from "../questions/repo";
 
 export type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -59,6 +61,27 @@ export interface WorkbenchApi {
     write(file: string, text: string, create?: boolean): Promise<Result<{ file: string; historyKept: boolean }>>;
     /** 用系统默认程序打开《回路数据格式》说明 */
     openFormatDoc(): Promise<Result<string>>;
+  };
+
+  /** 题库 */
+  questions: {
+    list(filter?: QuestionFilter): Promise<Result<QuestionWithProgress[]>>;
+    tags(): Promise<Result<string[]>>;
+    create(data: Partial<QuestionInput>): Promise<Result<Question>>;
+    update(id: number, data: Partial<QuestionInput>): Promise<Result<{ question: Question; progressReset: boolean }>>;
+    setStatus(ids: number[], status: ReviewStatus): Promise<Result<{ changed: number; progressReset: number }>>;
+    remove(ids: number[]): Promise<Result<void>>;
+    /** 导出（不传 ids 导出全部）；用户取消时为 null */
+    exportFile(ids?: number[]): Promise<Result<{ path: string; count: number } | null>>;
+    pickImport(): Promise<Result<{ path: string; preview?: ImportPreview; error?: string } | null>>;
+    importFile(path: string, updateExisting: boolean): Promise<Result<{ added: number; updated: number; progressReset: number; skipped: number }>>;
+  };
+
+  /** 复习 */
+  review: {
+    queue(today: string): Promise<Result<TodayQueue>>;
+    answer(id: number, response: unknown, grade: number, today: string): Promise<Result<AnswerResult>>;
+    stats(today: string): Promise<Result<ReviewStats>>;
   };
 
   /** 让 Claude 写回路（调用本机 Claude Code） */

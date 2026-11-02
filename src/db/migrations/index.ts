@@ -104,6 +104,58 @@ export const MIGRATIONS: Migration[] = [
       CREATE INDEX idx_issue_sources_issue ON issue_sources(issue_id);
     `,
   },
+  {
+    version: 3,
+    name: "题库与复习：题目、复习记录（分表）、作答历史",
+    sql: `
+      CREATE TABLE questions (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        uid             TEXT NOT NULL UNIQUE,           -- 导入导出时识别同一道题
+        qtype           TEXT NOT NULL,                  -- single / multi / judge / order
+        stem            TEXT NOT NULL,
+        options         TEXT NOT NULL DEFAULT '[]',     -- JSON 字符串数组
+        answer          TEXT NOT NULL,                  -- JSON，按题型不同
+        explanation     TEXT NOT NULL DEFAULT '',
+        tags            TEXT NOT NULL DEFAULT '[]',     -- JSON 字符串数组
+        review_status   TEXT NOT NULL,                  -- draft / reviewed
+        source          TEXT NOT NULL,                  -- manual / ai / note / builtin / import
+        content_version INTEGER NOT NULL DEFAULT 1,     -- 题干、选项、答案、解析或审核状态变化时 +1
+        created_at      TEXT NOT NULL,
+        updated_at      TEXT NOT NULL
+      );
+      -- 复习记录：每道题的每个内容版本一行；active = 0 的是旧版本的历史，不参与排期
+      CREATE TABLE review_records (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        question_id     INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+        content_version INTEGER NOT NULL,
+        active          INTEGER NOT NULL DEFAULT 1,
+        repetitions     INTEGER NOT NULL DEFAULT 0,
+        interval_days   INTEGER NOT NULL DEFAULT 0,
+        ease            REAL NOT NULL DEFAULT 2.5,
+        due_date        TEXT NOT NULL,
+        last_reviewed   TEXT NOT NULL,
+        created_at      TEXT NOT NULL
+      );
+      CREATE INDEX idx_review_records_q ON review_records(question_id, active);
+      CREATE INDEX idx_review_records_due ON review_records(active, due_date);
+      -- 每次作答一行
+      CREATE TABLE review_log (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        record_id       INTEGER NOT NULL REFERENCES review_records(id) ON DELETE CASCADE,
+        question_id     INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+        content_version INTEGER NOT NULL,
+        review_date     TEXT NOT NULL,                  -- 本地日期 YYYY-MM-DD
+        reviewed_at     TEXT NOT NULL,
+        was_new         INTEGER NOT NULL,               -- 这次是不是第一次学
+        correct         INTEGER NOT NULL,
+        grade           INTEGER NOT NULL,               -- SM-2 评分 0～5
+        response        TEXT NOT NULL DEFAULT 'null',   -- 作答内容（JSON）
+        interval_after  INTEGER NOT NULL,
+        ease_after      REAL NOT NULL
+      );
+      CREATE INDEX idx_review_log_date ON review_log(review_date);
+    `,
+  },
 ];
 
 export const LATEST_DB_VERSION = MIGRATIONS.length

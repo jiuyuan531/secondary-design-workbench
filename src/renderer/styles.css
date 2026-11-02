@@ -231,3 +231,27 @@ svg.circuit:active { cursor: grabbing; }
 .banner.generated { display: block; }
 .banner.generated ul { margin: 4px 0; padding-left: 18px; }
 .claude-notes { margin-top: 6px; white-space: pre-wrap; max-height: 20vh; overflow: auto; }
+
+/* ---------- M3 题库复习 ---------- */
+.review-start { max-width: 760px; }
+button.big { font-size: 16px; padding: 10px 28px; margin: 12px 0; }
+.review-card { max-width: 760px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 18px 22px; }
+.review-meta { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; margin-bottom: 10px; flex-wrap: wrap; }
+.review-stem { font-size: 17px; line-height: 1.6; margin-bottom: 14px; white-space: pre-wrap; }
+.opt { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 6px; cursor: pointer; }
+.opt.judge { min-width: 90px; }
+.opt.right { background: #dafbe1; border-color: #4ac26b; }
+.opt.wrong { background: #ffebe9; border-color: #ff8182; }
+.opt.order { cursor: default; }
+.order-no { display: inline-block; min-width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 50%; background: #eaeef2; font-size: 12px; font-weight: 600; }
+.order-btns { margin-left: auto; }
+.review-actions { margin-top: 12px; }
+.explain-text { margin-top: 6px; color: #24292f; font-weight: normal; }
+.option-edit { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.option-edit input[type=text] { flex: 1; }
+.opt-letter { font-weight: 600; min-width: 18px; }
+.bulk-bar { background: #ddf4ff; border-radius: 6px; padding: 6px 10px; }
+button.danger { color: var(--err); border-color: #ffcecb; }
+.badge.reviewed { background: #dafbe1; color: var(--ok); }
+td.stem-cell { max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stat.clickable { cursor: pointer; font: inherit; }
