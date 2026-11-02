@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CircuitListItem } from "../../shared/api";
+import type { CircuitListItem, ClaudeGenerateResult } from "../../shared/api";
 import { loadCircuit, step, DEFAULT_MAX_TICKS, type Circuit, type ScenarioStep } from "../../engine/index";
 import { powerNodes } from "../../engine/validate";
 import { CircuitView } from "../circuit/CircuitView";
 import { CircuitEditor, blankCircuitText, copyCircuitText } from "../circuit/CircuitEditor";
+import { ClaudeWriter } from "../circuit/ClaudeWriter";
 import {
   newSim, tickOnce, runToEnd, applyOperate, playStep, newPlayer, hasSomethingToPlay,
   type Sim, type Player,
@@ -16,9 +17,9 @@ const SPEEDS = [
   { label: "快", ms: 300 },
 ];
 
-type EditorState = { file: string | null; text: string } | null;
+type EditorState = { file: string | null; text: string; generated?: ClaudeGenerateResult } | null;
 
-export function CircuitsPage() {
+export function CircuitsPage({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const [list, setList] = useState<CircuitListItem[] | null>(null);
   const [listErr, setListErr] = useState<string | null>(null);
   const [file, setFile] = useState<string | null>(null);
@@ -36,6 +37,8 @@ export function CircuitsPage() {
   const [editor, setEditor] = useState<EditorState>(null);
   const [circuitsDir, setCircuitsDir] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [claudeOpen, setClaudeOpen] = useState(false);
+  const [claudeEnabled, setClaudeEnabled] = useState(false);
 
   // 自动播放用 ref 读最新值，避免定时器拿到旧状态
   const simRef = useRef(sim);
@@ -57,7 +60,10 @@ export function CircuitsPage() {
 
   useEffect(() => {
     refreshList();
-    window.api.getSettings().then((s) => setMaxTicks(Number(s["sim.maxTicks"]) || DEFAULT_MAX_TICKS));
+    window.api.getSettings().then((s) => {
+      setMaxTicks(Number(s["sim.maxTicks"]) || DEFAULT_MAX_TICKS);
+      setClaudeEnabled(!!s["claude.enabled"]);
+    });
     window.api.getAppInfo().then((i) => setCircuitsDir(i.circuitsDir));
     return stop;
   }, []);
@@ -205,6 +211,7 @@ export function CircuitsPage() {
             </div>
           ))}
           <div className="list-actions">
+            <button className="primary" onClick={() => { stop(); setClaudeOpen(true); }} title="用文字提要求，由本机的 Claude Code 编写回路">✦ 让 Claude 写回路</button>
             <button onClick={() => openEditor("blank")}>＋ 新建回路</button>
             <button onClick={() => openEditor("copy")} disabled={!sim} title="以当前选中的回路为底稿另存一份">复制当前回路</button>
             <button onClick={() => openEditor("edit")} disabled={!file} title="编辑当前回路文件">编辑当前回路</button>
@@ -342,7 +349,13 @@ export function CircuitsPage() {
 
       {editor && (
         <CircuitEditor file={editor.file} initialText={editor.text} existingFiles={(list ?? []).map((x) => x.file)}
-          onClose={() => setEditor(null)} onSaved={onSaved} />
+          onClose={() => setEditor(null)} onSaved={onSaved} generated={editor.generated} />
+      )}
+      {claudeOpen && (
+        <ClaudeWriter enabled={claudeEnabled} currentFile={sim ? file : null} currentTitle={sim?.circuit.title}
+          onClose={() => setClaudeOpen(false)}
+          onOpenSettings={() => { setClaudeOpen(false); onOpenSettings?.(); }}
+          onResult={(r, base) => { setClaudeOpen(false); setEditor({ file: base, text: r.text!, generated: r }); }} />
       )}
     </section>
   );

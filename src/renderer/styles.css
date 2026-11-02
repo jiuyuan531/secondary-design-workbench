@@ -222,3 +222,12 @@ svg.circuit:active { cursor: grabbing; }
 .format-help { font-size: 13px; background: #f6f8fa; border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; line-height: 1.6; }
 .format-help ul { margin: 4px 0; padding-left: 18px; }
 .format-help code { background: #eaeef2; padding: 0 3px; border-radius: 3px; }
+
+/* ---------- 让 Claude 写回路 ---------- */
+.claude-request { width: 100%; box-sizing: border-box; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; margin-top: 4px; resize: vertical; }
+.claude-progress { background: #f6f8fa; border-radius: 6px; padding: 8px 12px; font-size: 13px; line-height: 1.8; }
+.claude-progress .done { color: var(--muted); }
+.claude-progress .current { font-weight: 600; color: var(--accent); }
+.banner.generated { display: block; }
+.banner.generated ul { margin: 4px 0; padding-left: 18px; }
+.claude-notes { margin-top: 6px; white-space: pre-wrap; max-height: 20vh; overflow: auto; }

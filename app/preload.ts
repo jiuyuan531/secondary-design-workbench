@@ -24,6 +24,15 @@ const api: WorkbenchApi = {
     write: (file, text, create) => ipcRenderer.invoke("circuits:write", file, text, create),
     openFormatDoc: () => ipcRenderer.invoke("circuits:openFormatDoc"),
   },
+  claude: {
+    generate: (request, baseFile) => ipcRenderer.invoke("claude:generate", request, baseFile),
+    cancel: () => ipcRenderer.invoke("claude:cancel"),
+    onProgress: (cb) => {
+      const fn = (_e: unknown, text: string) => cb(text);
+      ipcRenderer.on("claude:progress", fn);
+      return () => { ipcRenderer.removeListener("claude:progress", fn); };
+    },
+  },
   data: {
     backup: () => ipcRenderer.invoke("data:backup"),
     pickRestore: () => ipcRenderer.invoke("data:pickRestore"),

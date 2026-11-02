@@ -19,6 +19,7 @@ import * as board from "../src/board/repo";
 import type { EntityName } from "../src/board/model";
 import { inspectBackup, timestamp } from "../src/db/backup";
 import { loadCircuit } from "../src/engine/index";
+import { generateCircuit, cancelClaude } from "../src/ai/claudeRunner";
 
 const argv = process.argv;
 const argValue = (name: string) => argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -221,15 +222,46 @@ function registerIpc(): void {
     fs.renameSync(tmp, dest);
     return { file, historyKept: exists };
   });
+  const formatDocPath = () => app.isPackaged
+    ? path.join(process.resourcesPath, "docs", "回路数据格式.md")
+    : path.join(app.getAppPath(), "docs", "回路数据格式.md");
   handle("circuits:openFormatDoc", async () => {
-    const doc = app.isPackaged
-      ? path.join(process.resourcesPath, "docs", "回路数据格式.md")
-      : path.join(app.getAppPath(), "docs", "回路数据格式.md");
+    const doc = formatDocPath();
     if (!fs.existsSync(doc)) throw new Error(`找不到格式说明文件：${doc}`);
     const err = await shell.openPath(doc);
     if (err) throw new Error(`打不开格式说明：${err}`);
     return doc;
   });
+
+  // ---------------- 让 Claude 写回路 ----------------
+  // 只发送用户在对话框里写的要求，以及用户勾选时的当前这一个回路；Claude Code 的工具全部关闭，不读本机文件。
+  let claudeBusy = false;
+  ipcMain.handle("claude:generate", async (e, request: string, baseFile?: string) => wrap(async () => {
+    const settings = readAllSettings(db, boot);
+    if (!settings["claude.enabled"]) throw new Error("“让 Claude 写回路”还没有打开。请到“设置 → Claude 写回路”里打开。");
+    if (typeof request !== "string" || !request.trim()) throw new Error("请先写下对回路的要求");
+    if (claudeBusy) throw new Error("上一次生成还没有结束");
+    claudeBusy = true;
+    try {
+      const workDir = path.join(app.getPath("userData"), "claude-work");
+      fs.mkdirSync(workDir, { recursive: true });
+      const base = baseFile ? fs.readFileSync(circuitFile(baseFile), "utf8") : undefined;
+      const example = fs.readFileSync(path.join(seedDir(), "circuits", "breaker-control-basic.json"), "utf8");
+      return await generateCircuit(
+        { request, base, formatDoc: fs.readFileSync(formatDocPath(), "utf8"), example },
+        {
+          command: String(settings["claude.command"] ?? ""),
+          model: String(settings["claude.model"] ?? ""),
+          timeoutMs: (Number(settings["claude.timeoutSec"]) || 300) * 1000,
+          cwd: workDir,
+        },
+        (text) => { if (!e.sender.isDestroyed()) e.sender.send("claude:progress", text); },
+      );
+    } finally {
+      claudeBusy = false;
+    }
+  }));
+  ipcMain.handle("claude:cancel", () => { cancelClaude(); });
 
   // ---------------- 备份 / 恢复 ----------------
   ipcMain.handle("data:backup", async (e) => wrap(async () => {

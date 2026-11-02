@@ -3,6 +3,7 @@ import { loadCircuit, initialState, step, type Circuit } from "../../engine/inde
 import { powerNodes } from "../../engine/validate";
 import { CircuitView } from "./CircuitView";
 import { call } from "../lib";
+import type { ClaudeGenerateResult } from "../../shared/api";
 export { blankCircuitText, copyCircuitText } from "./templates";
 
 /**
@@ -10,13 +11,15 @@ export { blankCircuitText, copyCircuitText } from "./templates";
  * 预览图上可以拖动元件和节点改布局坐标（自动对齐 10 的整数倍），双击元件切换横放 / 竖放。
  * 保存时主进程会再校验一次，格式不对不会写入；覆盖前旧文件存到“历史版本”子目录。
  */
-export function CircuitEditor({ file, initialText, existingFiles, onClose, onSaved }: {
+export function CircuitEditor({ file, initialText, existingFiles, onClose, onSaved, generated }: {
   /** null 表示新建 */
   file: string | null;
   initialText: string;
   existingFiles: string[];
   onClose: () => void;
   onSaved: (file: string) => void;
+  /** 由 Claude 生成的内容：显示它的说明和检查结果，关闭时提醒还没保存 */
+  generated?: ClaudeGenerateResult;
 }) {
   const [text, setText] = useState(initialText);
   const [fileName, setFileName] = useState(() => file ?? suggestFileName(initialText, existingFiles));
@@ -93,7 +96,7 @@ export function CircuitEditor({ file, initialText, existingFiles, onClose, onSav
   saveRef.current = save;
 
   const close = () => {
-    if (text !== initialText && !window.confirm("修改还没有保存，确定关闭吗？")) return;
+    if ((text !== initialText || generated) && !window.confirm(generated ? "Claude 生成的回路还没有保存，关闭后就没有了。确定关闭吗？" : "修改还没有保存，确定关闭吗？")) return;
     onClose();
   };
 
@@ -128,6 +131,18 @@ export function CircuitEditor({ file, initialText, existingFiles, onClose, onSav
         <button className="primary" onClick={save} disabled={saving || !!parsed.error}>{saving ? "保存中…" : "保存（Ctrl+S）"}</button>
         <button onClick={close}>关闭</button>
       </div>
+      {generated && (
+        <div className={generated.errors.length ? "banner warn small generated" : "banner info small generated"}>
+          <div>
+            <b>这是 Claude 生成的草稿</b>（共调用 {generated.attempts} 次{generated.costUsd ? `，约 ${generated.costUsd.toFixed(2)} 美元` : ""}）。
+            {generated.errors.length
+              ? `自动检查还剩 ${generated.errors.length} 处问题，可以在左边手动改，或关闭后换个说法重新生成：`
+              : "格式检查和演示场景试运行都已通过。请对照右边的图核对接法，确认后保存。"}
+            {generated.errors.length > 0 && <ul>{generated.errors.map((e, i) => <li key={i}>{e}</li>)}</ul>}
+            {generated.notes && <div className="pre claude-notes">{plainText(generated.notes)}</div>}
+          </div>
+        </div>
+      )}
       {saveErr && <div className="banner error small"><pre>{saveErr}</pre></div>}
       <div className="editor-body">
         <div className="editor-left">
@@ -182,4 +197,9 @@ function suggestFileName(text: string, existing: string[]): string {
   let name = `${base}.json`;
   for (let i = 2; existing.includes(name); i++) name = `${base}-${i}.json`;
   return name;
+}
+
+/** 去掉 Claude 说明里常见的 Markdown 记号（加粗、行内代码、标题井号），界面上直接显示纯文字 */
+function plainText(md: string): string {
+  return md.replace(/\*\*(.+?)\*\*/g, "$1").replace(/`([^`]+)`/g, "$1").replace(/^#+\s*/gm, "");
 }

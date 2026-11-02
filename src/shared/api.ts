@@ -61,6 +61,15 @@ export interface WorkbenchApi {
     openFormatDoc(): Promise<Result<string>>;
   };
 
+  /** 让 Claude 写回路（调用本机 Claude Code） */
+  claude: {
+    /** baseFile：在回路文件夹里的这个回路基础上修改 */
+    generate(request: string, baseFile?: string): Promise<Result<ClaudeGenerateResult>>;
+    cancel(): Promise<void>;
+    /** 订阅进度文字，返回取消订阅的函数 */
+    onProgress(cb: (text: string) => void): () => void;
+  };
+
   data: {
     backup(): Promise<Result<{ path: string; summary?: string } | null>>;
     pickRestore(): Promise<Result<{ path: string; check: BackupCheck } | null>>;
@@ -77,4 +86,13 @@ export interface CircuitListItem {
   migratedFrom?: number[];
   /** 读入失败时的中文原因 */
   error?: string;
+}
+
+export interface ClaudeGenerateResult {
+  text: string | null;
+  notes: string;
+  /** 最后一次检查仍有的问题；空数组表示全部通过 */
+  errors: string[];
+  attempts: number;
+  costUsd: number;
 }
