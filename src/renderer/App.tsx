@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import type { AppInfo } from "../shared/api";
 import { HomePage } from "./pages/HomePage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { PlaceholderPage } from "./pages/PlaceholderPage";
 import { BoardPage } from "./pages/BoardPage";
 import { CircuitsPage } from "./pages/CircuitsPage";
+import { QuestionsPage } from "./pages/QuestionsPage";
 
 type PageKey = "home" | "board" | "circuits" | "questions" | "settings";
 
@@ -50,11 +50,12 @@ export function App() {
         )}
         {page === "home" && (
           <HomePage info={info} onChanged={reloadInfo} onOpenProject={openProject}
-            onOpenIssues={() => { setProjectId(null); setBoardTab("issues"); setPage("board"); }} />
+            onOpenIssues={() => { setProjectId(null); setBoardTab("issues"); setPage("board"); }}
+            onOpenReview={() => setPage("questions")} />
         )}
         {page === "board" && <BoardPage key={`${boardTab}`} projectId={projectId} onOpenProject={openProject} initialTab={boardTab} />}
         {page === "circuits" && <CircuitsPage onOpenSettings={() => setPage("settings")} />}
-        {page === "questions" && <PlaceholderPage title="题库复习" milestone="M3" text="题库、闪卡和间隔重复复习。" />}
+        {page === "questions" && <QuestionsPage onOpenSettings={() => setPage("settings")} onChanged={reloadInfo} />}
         {page === "settings" && <SettingsPage onRestored={() => { reloadInfo(); setEpoch((e) => e + 1); setPage("home"); }} />}
       </main>
     </div>

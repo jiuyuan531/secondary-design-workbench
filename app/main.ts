@@ -20,6 +20,8 @@ import type { EntityName } from "../src/board/model";
 import { inspectBackup, timestamp } from "../src/db/backup";
 import { loadCircuit } from "../src/engine/index";
 import { generateCircuit, cancelClaude } from "../src/ai/claudeRunner";
+import * as qrepo from "../src/questions/repo";
+import { exportQuestions } from "../src/questions/format";
 
 const argv = process.argv;
 const argValue = (name: string) => argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -69,6 +71,24 @@ function ensureCircuitsDir(): void {
   if (changed) db.run("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('seed.circuits.copied', ?)", [JSON.stringify(copied)]);
 }
 
+/** 内置示例题：每个文件只导入一次（记录在 app_meta），之后用户修改或删除都不会被覆盖或恢复。 */
+function ensureSeedQuestions(): void {
+  if (!db) return;
+  const src = path.join(seedDir(), "questions");
+  if (!fs.existsSync(src)) return;
+  const row = db.all<{ value: string }>("SELECT value FROM app_meta WHERE key = 'seed.questions.imported'")[0];
+  let done: string[] = [];
+  try { const v = row ? JSON.parse(row.value) : []; if (Array.isArray(v)) done = v; } catch { /* 按未导入处理 */ }
+  let changed = false;
+  for (const f of fs.readdirSync(src).filter((x) => x.endsWith(".json")).sort()) {
+    if (done.includes(f)) continue;
+    qrepo.applyImport(db, fs.readFileSync(path.join(src, f), "utf8"), false, "builtin");
+    done.push(f);
+    changed = true;
+  }
+  if (changed) db.run("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('seed.questions.imported', ?)", [JSON.stringify(done)]);
+}
+
 async function initData(): Promise<void> {
   const userData = app.getPath("userData");
   boot = new BootstrapFile(path.join(userData, "bootstrap.json"));
@@ -86,6 +106,11 @@ async function initData(): Promise<void> {
     ensureCircuitsDir();
   } catch (e) {
     startupError = (startupError ? startupError + "\n" : "") + `回路数据目录不可用：${(e as Error).message}`;
+  }
+  try {
+    ensureSeedQuestions();
+  } catch (e) {
+    startupError = (startupError ? startupError + "\n" : "") + `内置示例题导入失败：${(e as Error).message}`;
   }
 }
 
@@ -232,6 +257,55 @@ function registerIpc(): void {
     if (err) throw new Error(`打不开格式说明：${err}`);
     return doc;
   });
+
+  // ---------------- 题库与复习 ----------------
+  const reviewSettings = (): qrepo.ReviewSettings => {
+    const st = readAllSettings(db, boot);
+    return {
+      newPerDay: Number(st["review.newPerDay"] ?? 10),
+      maxReviewsPerDay: Number(st["review.maxReviewsPerDay"] ?? 100),
+      includeDrafts: !!st["review.includeDrafts"],
+    };
+  };
+  handle("q:list", (f?: qrepo.QuestionFilter) => qrepo.listQuestions(needDb(), f ?? {}));
+  handle("q:tags", () => qrepo.allTags(needDb()));
+  handle("q:create", (data: Record<string, unknown>) => qrepo.createQuestion(needDb(), { ...data, source: "manual" }));
+  handle("q:update", (id: number, data: Record<string, unknown>) => qrepo.updateQuestion(needDb(), id, data));
+  handle("q:setStatus", (ids: number[], status: "draft" | "reviewed") => qrepo.setReviewStatus(needDb(), ids, status));
+  handle("q:delete", (ids: number[]) => qrepo.deleteQuestions(needDb(), ids));
+  handle("review:queue", (today: string) => qrepo.todayQueue(needDb(), today, reviewSettings()));
+  handle("review:answer", (id: number, response: unknown, grade: number, today: string) => qrepo.answerQuestion(needDb(), id, response, grade, today));
+  handle("review:stats", (today: string) => qrepo.reviewStats(needDb(), today, reviewSettings()));
+  ipcMain.handle("q:export", async (e, ids?: number[]) => wrap(async () => {
+    const all = qrepo.listQuestions(needDb());
+    const qs = ids?.length ? all.filter((q) => ids.includes(q.id)) : all;
+    if (!qs.length) throw new Error("没有可以导出的题目");
+    const win = BrowserWindow.fromWebContents(e.sender)!;
+    const r = await dialog.showSaveDialog(win, {
+      title: "导出题目",
+      defaultPath: path.join(app.getPath("documents"), `题目导出-${timestamp()}.json`),
+      filters: [{ name: "题目 JSON", extensions: ["json"] }],
+    });
+    if (r.canceled || !r.filePath) return null;
+    fs.writeFileSync(r.filePath, exportQuestions(qs, new Date().toISOString()), "utf8");
+    return { path: r.filePath, count: qs.length };
+  }));
+  ipcMain.handle("q:pickImport", async (e) => wrap(async () => {
+    const win = BrowserWindow.fromWebContents(e.sender)!;
+    const r = await dialog.showOpenDialog(win, {
+      title: "选择要导入的题目文件",
+      properties: ["openFile"],
+      filters: [{ name: "题目 JSON", extensions: ["json"] }, { name: "所有文件", extensions: ["*"] }],
+    });
+    if (r.canceled || !r.filePaths[0]) return null;
+    const file = r.filePaths[0];
+    try {
+      return { path: file, preview: qrepo.previewImport(needDb(), fs.readFileSync(file, "utf8")) };
+    } catch (err) {
+      return { path: file, error: (err as Error).message };
+    }
+  }));
+  handle("q:import", (file: string, updateExisting: boolean) => qrepo.applyImport(needDb(), fs.readFileSync(file, "utf8"), !!updateExisting));
 
   // ---------------- 让 Claude 写回路 ----------------
   // 只发送用户在对话框里写的要求，以及用户勾选时的当前这一个回路；Claude Code 的工具全部关闭，不读本机文件。

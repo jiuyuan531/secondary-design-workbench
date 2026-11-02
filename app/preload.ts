@@ -24,6 +24,22 @@ const api: WorkbenchApi = {
     write: (file, text, create) => ipcRenderer.invoke("circuits:write", file, text, create),
     openFormatDoc: () => ipcRenderer.invoke("circuits:openFormatDoc"),
   },
+  questions: {
+    list: (f) => ipcRenderer.invoke("q:list", f),
+    tags: () => ipcRenderer.invoke("q:tags"),
+    create: (d) => ipcRenderer.invoke("q:create", d),
+    update: (id, d) => ipcRenderer.invoke("q:update", id, d),
+    setStatus: (ids, st) => ipcRenderer.invoke("q:setStatus", ids, st),
+    remove: (ids) => ipcRenderer.invoke("q:delete", ids),
+    exportFile: (ids) => ipcRenderer.invoke("q:export", ids),
+    pickImport: () => ipcRenderer.invoke("q:pickImport"),
+    importFile: (p, u) => ipcRenderer.invoke("q:import", p, u),
+  },
+  review: {
+    queue: (today) => ipcRenderer.invoke("review:queue", today),
+    answer: (id, resp, grade, today) => ipcRenderer.invoke("review:answer", id, resp, grade, today),
+    stats: (today) => ipcRenderer.invoke("review:stats", today),
+  },
   claude: {
     generate: (request, baseFile) => ipcRenderer.invoke("claude:generate", request, baseFile),
     cancel: () => ipcRenderer.invoke("claude:cancel"),

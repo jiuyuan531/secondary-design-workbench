@@ -26,7 +26,7 @@ export function inspectBackup(SQL: SqlJsStatic, filePath: string): BackupCheck {
     if (version > LATEST_DB_VERSION)
       return { ok: false, version, error: `备份来自更新版本的程序（数据库版本 ${version}，当前程序支持到 ${LATEST_DB_VERSION}），请先升级程序` };
     const count = (t: string) => (tables.has(t) ? Number(db!.exec(`SELECT count(*) FROM ${t}`)[0].values[0][0]) : 0);
-    const summary = `项目 ${count("projects")} 个，卷册 ${count("volumes")} 个，任务 ${count("tasks")} 个，待确认问题 ${count("issues")} 个`;
+    const summary = `项目 ${count("projects")} 个，卷册 ${count("volumes")} 个，任务 ${count("tasks")} 个，待确认问题 ${count("issues")} 个，题目 ${count("questions")} 道`;
     return { ok: true, version, summary };
   } catch (e) {
     return { ok: false, error: `无法读取这个文件：${(e as Error).message}` };

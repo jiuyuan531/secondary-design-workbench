@@ -1,17 +1,20 @@
 import { useEffect, useState } from "react";
 import type { AppInfo, SelfCheckResult } from "../../shared/api";
 import type { Dashboard } from "../../board/repo";
+import type { ReviewStats } from "../../questions/repo";
 import { EnumBadge } from "../components/EnumBadge";
 import { call, today, dueText } from "../lib";
 
-export function HomePage({ info, onChanged, onOpenProject, onOpenIssues }: {
-  info: AppInfo | null; onChanged: () => void; onOpenProject: (id: number) => void; onOpenIssues: () => void;
+export function HomePage({ info, onChanged, onOpenProject, onOpenIssues, onOpenReview }: {
+  info: AppInfo | null; onChanged: () => void; onOpenProject: (id: number) => void; onOpenIssues: () => void; onOpenReview: () => void;
 }) {
   const [dash, setDash] = useState<Dashboard | null>(null);
+  const [rs, setRs] = useState<ReviewStats | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     if (info?.dbVersion == null) return;
     call(window.api.board.dashboard(today())).then(setDash).catch((e) => setErr(e.message));
+    call(window.api.review.stats(today())).then(setRs).catch((e) => setErr(e.message));
   }, [info]);
 
   if (!info) return <p>加载中……</p>;
@@ -25,6 +28,12 @@ export function HomePage({ info, onChanged, onOpenProject, onOpenIssues }: {
             <div className="stat"><div className="stat-num">{dash.totals.activeProjects}</div><div className="stat-label">进行中的项目</div></div>
             <div className="stat"><div className="stat-num">{dash.upcoming.length}</div><div className="stat-label">14 天内到期（含逾期）</div></div>
             <button className="stat clickable" onClick={onOpenIssues}><div className="stat-num">{dash.totals.openIssues}</div><div className="stat-label">未解决的问题</div></button>
+            {rs && (
+              <button className="stat clickable" onClick={onOpenReview} title={`到期复习 ${rs.todayDue} 道，新题 ${rs.todayFresh} 道；今天已完成 ${rs.doneToday} 道`}>
+                <div className="stat-num">{rs.todayDue + rs.todayFresh}</div>
+                <div className="stat-label">今日待复习{rs.doneToday ? `（已完成 ${rs.doneToday}）` : ""}</div>
+              </button>
+            )}
           </div>
 
           <h2>近期截止</h2>
