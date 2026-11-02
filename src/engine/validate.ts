@@ -81,5 +81,24 @@ export function validateCircuit(c: Circuit): string[] {
     if (!c.components.some((x) => x.type === "coil" && x.drives === r.id)) errs.push(`${r.id}：没有线圈驱动它`);
   }
   if (c.maxTicks !== undefined && !(Number.isInteger(c.maxTicks) && c.maxTicks > 0)) errs.push("maxTicks 必须是正整数");
+
+  // 演示场景：操作的对象必须存在，并且是可操作接点或故障点
+  if (c.scenarios !== undefined && !Array.isArray(c.scenarios)) errs.push("scenarios 必须是数组");
+  for (const [si, sc] of (Array.isArray(c.scenarios) ? c.scenarios : []).entries()) {
+    const where = `演示场景“${sc?.title ?? si + 1}”`;
+    if (!Array.isArray(sc?.steps)) { errs.push(`${where}：steps 必须是数组`); continue; }
+    sc.steps.forEach((st, i) => {
+      const at = `${where}第 ${i + 1} 步`;
+      if (st.action === "tick" || st.action === "run") return;
+      if (st.action !== "operate") { errs.push(`${at}：action 只能是 operate、tick 或 run`); return; }
+      const t = st.target ? byId.get(st.target) : undefined;
+      if (!t) { errs.push(`${at}：操作对象 ${String(st.target)} 不存在`); return; }
+      if ((t.type === "contact_no" || t.type === "contact_nc") && t.operable) {
+        if (st.to !== "open" && st.to !== "closed") errs.push(`${at}：接点只能操作为 open 或 closed`);
+      } else if (t.type === "fault_injection") {
+        if (st.to !== "active" && st.to !== "inactive") errs.push(`${at}：故障只能设为 active 或 inactive`);
+      } else errs.push(`${at}：${st.target} 不是可操作接点或故障点，不能操作`);
+    });
+  }
   return errs;
 }

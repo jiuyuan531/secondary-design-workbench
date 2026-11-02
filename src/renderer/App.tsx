@@ -53,7 +53,7 @@ export function App() {
             onOpenIssues={() => { setProjectId(null); setBoardTab("issues"); setPage("board"); }} />
         )}
         {page === "board" && <BoardPage key={`${boardTab}`} projectId={projectId} onOpenProject={openProject} initialTab={boardTab} />}
-        {page === "circuits" && <CircuitsPage />}
+        {page === "circuits" && <CircuitsPage onOpenSettings={() => setPage("settings")} />}
         {page === "questions" && <PlaceholderPage title="题库复习" milestone="M3" text="题库、闪卡和间隔重复复习。" />}
         {page === "settings" && <SettingsPage onRestored={() => { reloadInfo(); setEpoch((e) => e + 1); setPage("home"); }} />}
       </main>

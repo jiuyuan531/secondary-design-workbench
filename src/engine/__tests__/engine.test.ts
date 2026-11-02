@@ -205,3 +205,18 @@ describe("其他行为", () => {
     expect(() => operate(c, initialState(c), "QF_b", "closed")).toThrow(/不能手动操作/);
   });
 });
+
+describe("演示场景校验", () => {
+  it("操作不存在或不可操作的元件会报中文错误", () => {
+    const c = controlCircuit({ antiPumping: false });
+    c.scenarios = [{ title: "错误场景", steps: [
+      { action: "operate", target: "不存在", to: "closed" },
+      { action: "operate", target: "QF", to: "closed" },
+      { action: "jump" as never },
+    ] }];
+    const errs = validateCircuit(c);
+    expect(errs.some((e) => e.includes("操作对象 不存在 不存在"))).toBe(true);
+    expect(errs.some((e) => e.includes("QF 不是可操作接点或故障点"))).toBe(true);
+    expect(errs.some((e) => e.includes("action 只能是"))).toBe(true);
+  });
+});
